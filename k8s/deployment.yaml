@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ok-api-deployment
+  labels:
+    app: ok-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ok-api
+  template:
+    metadata:
+      labels:
+        app: ok-api
+    spec:
+      containers:
+      - name: ok-api-container
+        image: edgargmaya/ok-api:0.1
+        ports:
+        - containerPort: 3000
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        env:
+        - name: NODE_ENV
+          value: "production"
