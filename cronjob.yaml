@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-cleaner-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-cleaner-role
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pod-cleaner-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: pod-cleaner-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: pod-cleaner-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-cleaner
+spec:
+  schedule: "0 * * * *"  # Se ejecuta cada hora
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: pod-cleaner-sa
+          containers:
+          - name: pod-cleaner
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+
+              echo "Buscando pods en estado Completed..."
+              completed_pods=$(kubectl get pods --all-namespaces --field-selector=status.phase=Succeeded -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers)
+
+              echo "Buscando pods en estado Error..."
+              failed_pods=$(kubectl get pods --all-namespaces --field-selector=status.phase=Failed -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers)
+
+              completed_count=0
+              failed_count=0
+
+              echo "Eliminando pods en estado Completed:"
+              while read -r namespace name; do
+                if [ -n "$namespace" ] && [ -n "$name" ]; then
+                  kubectl delete pod "$name" -n "$namespace"
+                  echo "Eliminado pod Completed: $name en namespace: $namespace"
+                  ((completed_count++))
+                fi
+              done <<< "$completed_pods"
+
+              echo "Eliminando pods en estado Error:"
+              while read -r namespace name; do
+                if [ -n "$namespace" ] && [ -n "$name" ]; then
+                  kubectl delete pod "$name" -n "$namespace"
+                  echo "Eliminado pod Error: $name en namespace: $namespace"
+                  ((failed_count++))
+                fi
+              done <<< "$failed_pods"
+
+              echo "Total de pods eliminados en estado Completed: $completed_count"
+              echo "Total de pods eliminados en estado Error: $failed_count"
+          restartPolicy: OnFailure
