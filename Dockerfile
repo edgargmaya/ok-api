@@ -18,3 +18,9 @@ EXPOSE 3000
 
 # Comando para ejecutar la aplicación
 CMD ["node", "app.js"]
+
+kubectl get pods --all-namespaces --field-selector=status.phase=Succeeded -o json | ConvertFrom-Json | ForEach-Object {
+    $namespace = $_.metadata.namespace
+    $podName = $_.metadata.name
+    kubectl delete pod $podName -n $namespace
+}
