@@ -63,4 +63,47 @@ def main():
 
     for email in email_list:
         # Find the user by email
-        user = next((u for u in users if u['email'] == email
+        user = next((u for u in users if u['email'] == email), None)
+        if not user:
+            print(f"User with email {email} not found.")
+            continue
+
+        # Check if the user has logged in
+        last_seen = user.get('lastSeenAtAge', '')
+        if 'year' in last_seen:
+            years = int(last_seen.split()[0])
+            if years >= 8:
+                print(f"User {user['login']} has never logged in. Skipping...")
+                continue
+        elif not user.get('lastSeenAt'):
+            print(f"User {user['login']} has never logged in. Skipping...")
+            continue
+
+        # Format the user's name for the folder name
+        name_parts = user['name'].split(', ')
+        if len(name_parts) == 2:
+            folder_name = f"{name_parts[1]} {name_parts[0]}"
+        else:
+            folder_name = user['name']
+
+        # Check if the folder exists
+        if folder_name in existing_folders:
+            print(f"Folder '{folder_name}' already exists. Continuing to next user.")
+            continue
+
+        # Create the folder
+        print(f"Creating folder '{folder_name}' for user '{user['login']}'.")
+        folder = create_folder(folder_name)
+        folder_uid = folder['uid']
+
+        # Assign permissions to the user
+        print(f"Assigning permissions to user '{user['login']}' for folder '{folder_name}'.")
+        assign_folder_permissions(folder_uid, user['id'])
+
+        # Update the existing folders list
+        existing_folders[folder_name] = folder
+
+    print("Process completed.")
+
+if __name__ == '__main__':
+    main()
