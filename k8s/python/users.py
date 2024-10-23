@@ -1,109 +1,61 @@
-import requests
-import json
+# This script clones a GitHub repository, automates the setup of a Python virtual environment and installs application dependencies.
 
-# Configuration
-grafana_url = 'http://grafana-mydomain.com'
-api_key = 'YOUR_API_KEY'  # API key with admin permissions
-org_id = 1  # Organization ID (usually 1)
+# Define paths using environment variables
+$documentsPath = "$env:USERPROFILE\Documents"
+$envPath = "$documentsPath\python-v-env"
+$appPath = "$documentsPath\load_platform"
 
-# Headers for HTTP requests
-headers = {
-    'Authorization': f'Bearer {api_key}',
-    'Content-Type': 'application/json'
-}
+# Clone the GitHub repository into the Documents folder
+git clone https://github.com/your-username/your-repository.git $appPath
 
-# List of email addresses
-email_list = [
-    "email1@example.com",
-    "email2@example.com",
-    # Add more email addresses here
-]
+# Create a virtual environment to isolate project dependencies and avoid conflicts with other Python projects.
+python -m venv $envPath
 
-def get_users():
-    url = f'{grafana_url}/api/orgs/{org_id}/users'
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
+# Navigate to the application directory
+Set-Location $appPath
 
-def get_folders():
-    url = f'{grafana_url}/api/folders'
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    return response.json()
+# Use the virtual environment's Python to upgrade pip
+& "$envPath\Scripts\python.exe" -m pip install --upgrade pip
 
-def create_folder(title):
-    url = f'{grafana_url}/api/folders'
-    data = {
-        "title": title
-    }
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-    response.raise_for_status()
-    return response.json()
+# Install dependencies using the virtual environment's pip
+& "$envPath\Scripts\pip.exe" install -r requirements.txt
 
-def assign_folder_permissions(folder_uid, user_id):
-    url = f'{grafana_url}/api/folders/{folder_uid}/permissions'
-    data = {
-        "items": [
-            {
-                "userId": user_id,
-                "permission": 1  # 1 = View, 2 = Edit, 4 = Admin
-            }
-        ]
-    }
-    response = requests.post(url, headers=headers, data=json.dumps(data))
-    response.raise_for_status()
-    return response.json()
+# Instalar Uvicorn si no está incluido en requirements.txt
+pip install uvicorn
 
-def main():
-    users = get_users()
-    folders = get_folders()
+# Ejecutar la aplicación FastAPI utilizando Uvicorn
+uvicorn main:app --host 0.0.0.0 --port 8000
 
-    # Create a dictionary for quick access to existing folders
-    existing_folders = {folder['title']: folder for folder in folders}
-
-    for email in email_list:
-        # Find the user by email
-        user = next((u for u in users if u['email'] == email), None)
-        if not user:
-            print(f"User with email {email} not found.")
-            continue
-
-        # Check if the user has logged in
-        last_seen = user.get('lastSeenAtAge', '')
-        if 'year' in last_seen:
-            years = int(last_seen.split()[0])
-            if years >= 8:
-                print(f"User {user['login']} has never logged in. Skipping...")
-                continue
-        elif not user.get('lastSeenAt'):
-            print(f"User {user['login']} has never logged in. Skipping...")
-            continue
-
-        # Format the user's name for the folder name
-        name_parts = user['name'].split(', ')
-        if len(name_parts) == 2:
-            folder_name = f"{name_parts[1]} {name_parts[0]}"
-        else:
-            folder_name = user['name']
-
-        # Check if the folder exists
-        if folder_name in existing_folders:
-            print(f"Folder '{folder_name}' already exists. Continuing to next user.")
-            continue
-
-        # Create the folder
-        print(f"Creating folder '{folder_name}' for user '{user['login']}'.")
-        folder = create_folder(folder_name)
-        folder_uid = folder['uid']
-
-        # Assign permissions to the user
-        print(f"Assigning permissions to user '{user['login']}' for folder '{folder_name}'.")
-        assign_folder_permissions(folder_uid, user['id'])
-
-        # Update the existing folders list
-        existing_folders[folder_name] = folder
-
-    print("Process completed.")
-
-if __name__ == '__main__':
-    main()
+# Why does this script is proposing to use uvicorn for launching the App?
+#
+# Understanding ASGI and WSGI in Python Web Applications
+#
+# Key Differences Between WSGI and ASGI
+# WSGI (Web Server Gateway Interface) is a standard interface between web servers and synchronous Python web applications.
+# It was designed for a time when web applications were predominantly synchronous, handling one request at a time.
+# ASGI (Asynchronous Server Gateway Interface), on the other hand, is a successor to WSGI, created to support asynchronous applications.
+# ASGI allows for handling multiple connections concurrently and is well-suited for modern web applications that require real-time communication,
+# such as WebSockets.
+# 
+# Advantages and Disadvantages
+# WSGI Advantages:
+# 
+# Simplicity: Easy to implement and sufficient for traditional web applications.
+# Wide Support: Well-established with extensive tooling and community support.
+# WSGI Disadvantages:
+# 
+# Limited Concurrency: Cannot handle asynchronous calls efficiently.
+# Not Suitable for Real-Time Applications: Lacks support for protocols like WebSockets.
+# ASGI Advantages:
+# 
+# Asynchronous Support: Handles asynchronous tasks efficiently, improving performance.
+# Versatility: Supports long-lived connections and protocols beyond HTTP, such as WebSockets.
+# ASGI Disadvantages:
+# 
+# Complexity: Slightly more complex to implement than WSGI.
+# Less Mature: Newer standard with a smaller ecosystem compared to WSGI.
+# Why Use Uvicorn in a Production Environment
+# Uvicorn is a fast, lightweight ASGI server ideal for running asynchronous Python web applications like those built with FastAPI.
+# It leverages modern programming patterns, providing high performance by handling multiple requests concurrently without blocking.
+# Using Uvicorn in production allows applications to fully utilize the asynchronous capabilities of FastAPI, resulting in improved scalability and responsiveness,
+# especially under high load or when dealing with I/O-bound operations.
