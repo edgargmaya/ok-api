@@ -5,6 +5,9 @@ import servicemanager
 import socket
 import os
 import sys
+import traceback
+import logging
+import subprocess
 
 class AppServerSvc(win32serviceutil.ServiceFramework):
     _svc_name_ = 'NombreDeTuServicio'
@@ -15,9 +18,23 @@ class AppServerSvc(win32serviceutil.ServiceFramework):
         win32serviceutil.ServiceFramework.__init__(self, args)
         self.stop_event = win32event.CreateEvent(None, 0, 0, None)
         socket.setdefaulttimeout(60)
+        # Configurar logging
+        LOG_FILENAME = 'C:\\ruta\\a\\tu\\logfile.log'
+        logging.basicConfig(
+            filename=LOG_FILENAME,
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
 
     def SvcStop(self):
         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+        servicemanager.LogMsg(
+            servicemanager.EVENTLOG_INFORMATION_TYPE,
+            servicemanager.PYS_SERVICE_STOPPED,
+            (self._svc_name_, '')
+        )
+        logging.info(f"Servicio {self._svc_name_} detenido.")
         win32event.SetEvent(self.stop_event)
 
     def SvcDoRun(self):
@@ -26,12 +43,18 @@ class AppServerSvc(win32serviceutil.ServiceFramework):
             servicemanager.PYS_SERVICE_STARTED,
             (self._svc_name_, '')
         )
+        logging.info(f"Servicio {self._svc_name_} iniciado.")
         self.main()
 
     def main(self):
-        # Ejecuta tu aplicación principal
-        # Asegúrate de proporcionar la ruta completa si es necesario
-        os.system(f'python "{os.path.abspath("app.py")}"')
+        try:
+            script_path = os.path.abspath("app.py")
+            subprocess.run(['python', script_path], check=True)
+        except Exception as e:
+            error_msg = f"Error en el servicio {self._svc_name_}: {str(e)}\n{traceback.format_exc()}"
+            servicemanager.LogErrorMsg(error_msg)
+            logging.error(error_msg)
+            self.SvcStop()
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
