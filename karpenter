@@ -1,17 +1,36 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx-pod
-  labels:
-    app: nginx
-spec:
-  tolerations:
-    - key: "nodetype"
-      operator: "Equal"
-      value: "backoffice_ec2"
-      effect: "NoSchedule"
-  containers:
-    - name: nginx
-      image: nginx:latest
-      ports:
-        - containerPort: 80
+tolerations = [
+    V1Toleration(
+        key="dedicated",
+        operator="Equal",
+        value="airflow",
+        effect="NoSchedule"
+    )
+]
+
+affinity = V1Affinity(
+    node_affinity=V1NodeAffinity(
+        preferred_during_scheduling_ignored_during_execution=[
+            V1PreferredSchedulingTerm(
+                weight=1,
+                preference=V1NodeSelectorTerm(
+                    match_expressions=[
+                        V1NodeSelectorRequirement(
+                            key="disktype",
+                            operator="In",
+                            values=["ssd"]
+                        )
+                    ]
+                )
+            )
+        ]
+    )
+)
+
+KubernetesPodOperator(
+        # Other configurations
+        # Other configurations
+        # Other configurations
+        # ...
+        affinity=affinity  #Here your affinity
+        tolerations=tolerations #Here your tolerations
+    )
