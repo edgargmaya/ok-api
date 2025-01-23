@@ -1,14 +1,17 @@
-kubectl run nginx-pod --image=nginx --restart=Never `
-  --overrides "{
-    `"apiVersion`": `"v1`",
-    `"spec`": {
-      `"tolerations`": [
-        {
-          `"key`": `"nodetype`",
-          `"operator`": `"Equal`",
-          `"value`": `"backoffice_ec2`",
-          `"effect`": `"NoSchedule`"
-        }
-      ]
-    }
-  }"
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels:
+    app: nginx
+spec:
+  tolerations:
+    - key: "nodetype"
+      operator: "Equal"
+      value: "backoffice_ec2"
+      effect: "NoSchedule"
+  containers:
+    - name: nginx
+      image: nginx:latest
+      ports:
+        - containerPort: 80
