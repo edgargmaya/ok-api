@@ -1,15 +1,14 @@
-kubectl run nginx-pod --image=nginx --restart=Never \
-  --overrides='
-  {
-    "apiVersion": "v1",
-    "spec": {
-      "tolerations": [
+kubectl run nginx-pod --image=nginx --restart=Never `
+  --overrides "{
+    `"apiVersion`": `"v1`",
+    `"spec`": {
+      `"tolerations`": [
         {
-          "key": "nodetype",
-          "operator": "Equal",
-          "value": "backoffice_ec2",
-          "effect": "NoSchedule"
+          `"key`": `"nodetype`",
+          `"operator`": `"Equal`",
+          `"value`": `"backoffice_ec2`",
+          `"effect`": `"NoSchedule`"
         }
       ]
     }
-  }'
+  }"
