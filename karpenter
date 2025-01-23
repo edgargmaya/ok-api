@@ -34,3 +34,5 @@ KubernetesPodOperator(
         affinity=affinity  #Here your affinity
         tolerations=tolerations #Here your tolerations
     )
+
+https://airflow.apache.org/docs/apache-airflow-providers-cncf-kubernetes/stable/operators.html#difference-between-kubernetespodoperator-and-kubernetes-object-spec
