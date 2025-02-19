@@ -1,0 +1,6 @@
+aws transfer create-user \
+    --server-id s-xxxxxxxxxxxx \
+    --user-name mi-usuario \
+    --role arn:aws:iam::123456789012:role/mi-rol-sftp \
+    --home-directory "/s3-bucket/mi-carpeta" \
+    --password-secret-arn arn:aws:secretsmanager:us-west-2:123456789012:secret:TransferFamily/user-password-mi-usuario
