@@ -1,0 +1,166 @@
+name: Build and Deploy SPA
+
+# 1) Definir cuándo se ejecuta y permitir parámetros manuales.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      node_version:
+        description: "Versión de Node a utilizar"
+        required: false
+        default: "latest"
+      framework_override:
+        description: "Forzar un framework (angular|react|vue) en lugar de detectar automáticamente"
+        required: false
+        default: ""
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 2) Checkout del código
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      # 3) Determinar la versión de Node
+      - name: Determine Node Version
+        id: node-version
+        run: |
+          # Si el input es "latest" tomamos la última LTS (ej. 18)
+          # o podrías usar un mapping más robusto
+          if [ "${{ github.event.inputs.node_version }}" = "latest" ]; then
+            echo "NODE_VERSION=18" >> $GITHUB_ENV
+            echo "Usando la versión LTS de Node: 18"
+          else
+            echo "NODE_VERSION=${{ github.event.inputs.node_version }}" >> $GITHUB_ENV
+            echo "Usando la versión de Node especificada: ${{ github.event.inputs.node_version }}"
+
+      # 4) Configurar Node con la versión deseada
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # 5) Detectar el framework (salvo que se fuerce uno vía 'framework_override')
+      - name: Detect framework
+        id: detect-framework
+        run: |
+          # Si se pasó un valor override, lo usamos directamente
+          if [ "${{ github.event.inputs.framework_override }}" != "" ]; then
+            echo "FRAMEWORK=${{ github.event.inputs.framework_override }}" >> $GITHUB_ENV
+            echo "Forzando framework a: ${{ github.event.inputs.framework_override }}"
+            exit 0
+          fi
+
+          # De lo contrario, detectamos automáticamente
+          if [ -f package.json ]; then
+            if grep -qi '"@angular/core"' package.json || [ -f "angular.json" ]; then
+              echo "FRAMEWORK=angular" >> $GITHUB_ENV
+              echo "Detected Angular"
+            elif grep -qi '"react"' package.json || grep -qi '"react-dom"' package.json; then
+              echo "FRAMEWORK=react" >> $GITHUB_ENV
+              echo "Detected React"
+            elif grep -qi '"vue"' package.json || [ -f "vue.config.js" ]; then
+              echo "FRAMEWORK=vue" >> $GITHUB_ENV
+              echo "Detected Vue"
+            else
+              echo "FRAMEWORK=none" >> $GITHUB_ENV
+              echo "Could not detect a known SPA framework."
+              exit 1
+            fi
+          else
+            echo "No package.json found. Exiting."
+            exit 1
+          fi
+
+      # 6) Instalar dependencias
+      - name: Install dependencies
+        run: npm install
+
+      # 7) Lint y pruebas unitarias
+      - name: Lint and Test
+        run: |
+          case "${FRAMEWORK}" in
+            angular)
+              npm run lint || echo "Lint script failed or missing"
+              npm run test -- --watch=false --no-progress || echo "Test script failed or missing"
+              ;;
+            react)
+              npm run lint || echo "Lint script failed or missing"
+              npm test -- --watchAll=false || echo "Test script failed or missing"
+              ;;
+            vue)
+              npm run lint || echo "Lint script failed or missing"
+              npm run test:unit || echo "Test script failed or missing"
+              ;;
+          esac
+
+      # 8) Construir la aplicación (build)
+      - name: Build project
+        run: |
+          case "${FRAMEWORK}" in
+            angular)
+              # Ajusta "my-angular-app" o configuración según tu proyecto
+              # Angular CLI suele generar dist/<nombre-app>, y "configuration production" es solo un ejemplo
+              npm run build -- --configuration production || npm run build
+              ;;
+            react)
+              npm run build
+              ;;
+            vue)
+              npm run build
+              ;;
+          esac
+
+      # 9) Configurar credenciales de AWS
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # 10) Crear (si no existe) y subir al bucket de S3
+      - name: Create & Upload to S3
+        env:
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          # Creamos un bucket con el nombre de tu repo (requiere que sea único a nivel global de S3).
+          # Puede que necesites prefijar algo para evitar colisiones, p.ej. "spa-${REPO_NAME}".
+          BUCKET_NAME="spa-${REPO_NAME}"
+          # El nombre del bucket no puede tener mayúsculas ni caracteres especiales; 
+          # conviene ponerlo todo en minúsculas y sin espacios.
+          BUCKET_NAME=$(echo "$BUCKET_NAME" | tr '[:upper:]' '[:lower:]')
+
+          echo "Bucket a usar: $BUCKET_NAME"
+
+          # Verifica si ya existe el bucket
+          if aws s3 ls "s3://$BUCKET_NAME" 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "Creando bucket $BUCKET_NAME..."
+            # Nota: en us-east-1 no se requiere LocationConstraint
+            if [ "${AWS_DEFAULT_REGION}" = "us-east-1" ]; then
+              aws s3 mb "s3://$BUCKET_NAME"
+            else
+              aws s3 mb "s3://$BUCKET_NAME" --region "${AWS_DEFAULT_REGION}" --create-bucket-configuration LocationConstraint="${AWS_DEFAULT_REGION}"
+            fi
+          else
+            echo "Bucket $BUCKET_NAME ya existe o es accesible."
+          fi
+
+          # Subimos el build según el framework
+          case "${FRAMEWORK}" in
+            angular)
+              # Ajusta si es dist/mi-proyecto o similar
+              aws s3 sync dist/ "s3://$BUCKET_NAME" --delete
+              ;;
+            react)
+              aws s3 sync build/ "s3://$BUCKET_NAME" --delete
+              ;;
+            vue)
+              aws s3 sync dist/ "s3://$BUCKET_NAME" --delete
+              ;;
+          esac
