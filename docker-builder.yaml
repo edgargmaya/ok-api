@@ -1,0 +1,42 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    paths:
+      - 'images/**'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+
+      - name: Log in to Private Registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login <REGISTRY> -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+      - name: Determine changed subfolders
+        id: changed
+        run: |
+          changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} || true)
+          changed_folders=$(echo "$changed_files" | grep '^images/' | cut -d/ -f2 | sort | uniq)
+          echo "Modified subfolders: $changed_folders"
+          echo "::set-output name=folders::$changed_folders"
+
+      - name: Build & Push Docker images
+        if: steps.changed.outputs.folders != ''
+        run: |
+          for folder in ${{ steps.changed.outputs.folders }}
+          do
+            echo "----- Processing folder: $folder -----"
+            version=$(grep "version=" images/$folder/config.txt | cut -d= -f2)
+            echo "Detected version: $version"
+            docker build -t <REGISTRY>/$folder:$version images/$folder
+            docker push <REGISTRY>/$folder:$version
+          done
