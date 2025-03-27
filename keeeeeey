@@ -4,3 +4,123 @@ aws transfer create-user \
     --role arn:aws:iam::123456789012:role/mi-rol-sftp \
     --home-directory "/s3-bucket/mi-carpeta" \
     --password-secret-arn arn:aws:secretsmanager:us-west-2:123456789012:secret:TransferFamily/user-password-mi-usuario
+---
+
+Build and Push Docker Images
+This repository uses a GitHub Actions workflow to automatically build and push Docker images to a private registry whenever changes are detected in the images/ folder. Each subfolder within images/ should contain:
+
+A Dockerfile
+
+A config.txt file that defines (at least) the image version in the format version=<TAG>.
+
+Folder Structure
+A minimal example structure might look like this:
+
+arduino
+Copy
+Edit
+.
+├── .github/
+│   └── workflows/
+│       └── build-docker-images.yml
+└── images/
+    ├── my-service/
+    │   ├── Dockerfile
+    │   └── config.txt
+    └── another-service/
+        ├── Dockerfile
+        └── config.txt
+Where:
+
+my-service/ is an example subfolder for your Docker image.
+
+Dockerfile is your Dockerfile describing how to build the container image.
+
+config.txt contains a simple key-value pair, for example:
+
+ini
+Copy
+Edit
+version=1.0.0
+The GitHub Action will use version=1.0.0 as the Docker tag.
+
+How to Add a New Docker Image
+Create a new subfolder under the images/ directory, named after your service or image. For example, images/new-service/.
+
+Add a Dockerfile inside that subfolder.
+
+You can copy an existing Dockerfile from another service as a reference, or create your own from scratch.
+
+Add a config.txt file in the same subfolder with your desired version. For example:
+
+text
+Copy
+Edit
+version=2.3
+Commit and push these changes to the repository (on a branch, then open a pull request into main, or push directly to main depending on your workflow).
+
+Once these changes are pushed, the GitHub Actions workflow (.github/workflows/build-docker-images.yml) will detect the modified folder under images/ and build/push your Docker image. The resulting image will be tagged as:
+
+php-template
+Copy
+Edit
+<REGISTRY_URL>/<folder_name>:<version_in_config.txt>
+For example, if your folder is new-service and the version is 2.3, the tag will be:
+
+arduino
+Copy
+Edit
+<REGISTRY_URL>/new-service:2.3
+How the Workflow Works
+The workflow is triggered whenever changes are pushed to the main branch or a pull request is opened/updated, as long as those changes affect files in the images/** path.
+
+The step “Identify changed folders” determines which subfolders within images/ have been modified.
+
+For each changed subfolder, the workflow:
+
+Reads the version from the config.txt file.
+
+Builds the Docker image using docker buildx build.
+
+Pushes the image to the private registry defined by the secrets in your repository’s settings.
+
+If a subfolder in images/ is not changed, that image will not be rebuilt or pushed.
+
+Important Notes
+Make sure to define the following secrets (and adjust the references in build-docker-images.yml accordingly):
+
+REGISTRY_URL: The URL or hostname of your private Docker registry.
+
+REGISTRY_USERNAME and REGISTRY_PASSWORD: Credentials to log in to your private registry.
+
+If you want to build images with multiple tags (e.g., both :2.3 and :latest), you can modify the docker buildx build step to include multiple -t options.
+
+This workflow relies on git diff to detect changes between commits. If you are doing shallow clones (with fetch-depth=1), you may need to configure fetch-depth=0 or handle the first commit scenario differently. Check the script for details.
+
+If you need multi-platform images (e.g., linux/amd64, linux/arm64), you can adjust the --platform parameter in the docker buildx build command.
+
+Example Dockerfile
+Below is a minimal example Dockerfile that you can adapt:
+
+dockerfile
+Copy
+Edit
+# images/new-service/Dockerfile
+FROM ubuntu:20.04
+RUN apt-get update && apt-get install -y curl
+# Copy application code, set up environment, etc.
+
+CMD ["echo", "Hello from new-service!"]
+And a corresponding config.txt:
+
+text
+Copy
+Edit
+version=2.3
+When you push these files to the images/new-service/ folder, the workflow will build the image and push:
+
+arduino
+Copy
+Edit
+<REGISTRY_URL>/new-service:2.3
+Feel free to customize this README and adjust any paths or environment variable references as needed for your project. Happy coding!
