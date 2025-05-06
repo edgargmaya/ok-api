@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'crate1'
+    static_configs:
+      - targets: ['crate1:7071']
+
+  - job_name: 'crate2'
+    static_configs:
+      - targets: ['crate2:7071']
