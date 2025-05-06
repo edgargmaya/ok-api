@@ -9,7 +9,7 @@ services:
       - "5432:5432"
       - "7071:7071"
     volumes:
-      - ./jmx_exporter/crate-jmx-exporter-1.1.0.jar:/jmx_exporter/crate-jmx-exporter-1.1.0.jar
+      -  ./crate-jmx-exporter-1.1.0.jar:/jmx_exporter/crate-jmx-exporter-1.1.0.jar
     environment:
       - CRATE_HEAP_SIZE=512m
       - node.name=crate1
@@ -29,7 +29,7 @@ services:
       - "5433:5432"
       - "7072:7071"
     volumes:
-      - ./jmx_exporter/crate-jmx-exporter-1.1.0.jar:/jmx_exporter/crate-jmx-exporter-1.1.0.jar
+      -  ./crate-jmx-exporter-1.1.0.jar:/jmx_exporter/crate-jmx-exporter-1.1.0.jar
     environment:
       - CRATE_HEAP_SIZE=512m
       - node.name=crate2
@@ -89,5 +89,3 @@ networks:
 
 # psql -h <IP> -p 5432 -U crate -d doc -c \
 #   "CREATE TABLE IF NOT EXISTS sensor_data (id TEXT PRIMARY KEY, device_id TEXT, ts TIMESTAMP WITH TIME ZONE, temperature DOUBLE);"
-
-# Grafana DashboardId: 17174
