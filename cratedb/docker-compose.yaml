@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  crate1:
+    image: crate
+    container_name: crate1
+    ports:
+      - "4200:4200"
+      - "5432:5432"
+      - "7071:7071"
+    volumes:
+      - ./jmx_exporter/crate-jmx-exporter-1.1.0.jar:/jmx_exporter/crate-jmx-exporter-1.1.0.jar
+    environment:
+      - CRATE_HEAP_SIZE=512m
+      - node.name=crate1
+      - cluster.name=my-crate-cluster
+      - discovery.seed_hosts=crate1,crate2
+      - cluster.initial_master_nodes=crate1,crate2
+      - network.host=0.0.0.0
+      - CRATE_JAVA_OPTS=-XX:+UseG1GC -Xms512m -Xmx512m -javaagent:/jmx_exporter/crate-jmx-exporter-1.1.0.jar=7071
+    networks:
+      - crate-net
+
+  crate2:
+    image: crate
+    container_name: crate2
+    ports:
+      - "4201:4200"
+      - "5433:5432"
+      - "7072:7071"
+    volumes:
+      - ./jmx_exporter/crate-jmx-exporter-1.1.0.jar:/jmx_exporter/crate-jmx-exporter-1.1.0.jar
+    environment:
+      - CRATE_HEAP_SIZE=512m
+      - node.name=crate2
+      - cluster.name=my-crate-cluster
+      - discovery.seed_hosts=crate1,crate2
+      - cluster.initial_master_nodes=crate1,crate2
+      - network.host=0.0.0.0
+      - CRATE_JAVA_OPTS=-XX:+UseG1GC -Xms512m -Xmx512m -javaagent:/jmx_exporter/crate-jmx-exporter-1.1.0.jar=7071
+    networks:
+      - crate-net
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    networks:
+      - crate-net
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - crate-net
+
+networks:
+  crate-net:
+
+
+# sudo sysctl -w vm.max_map_count=262144
+# apt install uuid-runtime & apt install nano
+# apt install postgresql-client -y
+
+
+# run-test.sh
+# !/bin/bash
+
+# echo "Stress insert starting..."
+
+# for i in {1..5000}; do
+#   psql -h <IP> -p 5432 -U crate -d doc -c \
+#     "INSERT INTO sensor_data (id, device_id, ts, temperature)
+#      VALUES ('$(uuidgen)', 'dev-$((RANDOM % 100))', now(), $((RANDOM % 40 + 10)) + random());" >/dev/null
+# done
+
+# echo "Done!"
+
+
+# Initialize.sh
+# !/bin/bash
+
+# echo "Creating Table..."
+
+# psql -h <IP> -p 5432 -U crate -d doc -c \
+#   "CREATE TABLE IF NOT EXISTS sensor_data (id TEXT PRIMARY KEY, device_id TEXT, ts TIMESTAMP WITH TIME ZONE, temperature DOUBLE);"
+
+# Grafana DashboardId: 17174
