@@ -1,0 +1,18 @@
+# Imagen base oficial con IIS y .NET Framework 4.8
+FROM mcr.microsoft.com/dotnet/framework/aspnet:4.8-windowsservercore-ltsc2019
+
+# Crear directorio de la aplicación en IIS
+RUN mkdir C:\inetpub\wwwroot\ToDoApp
+
+# Copiar la aplicación a la carpeta de IIS
+COPY ToDoApp\ /inetpub/wwwroot/ToDoApp/
+
+# Configurar sitio web (opcional: puedes hacerlo desde tu host también)
+RUN powershell -NoProfile -Command \
+    Import-Module WebAdministration ; \
+    New-WebApplication -Site "Default Web Site" -Name "ToDoApp" -PhysicalPath "C:\inetpub\wwwroot\ToDoApp" -ApplicationPool ".NET v4.5"
+
+# Expone el puerto HTTP
+EXPOSE 80
+
+# IIS ya se inicia por defecto gracias a la imagen base
