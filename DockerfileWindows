@@ -8,9 +8,9 @@ RUN mkdir C:\inetpub\wwwroot\ToDoApp
 COPY ToDoApp\ /inetpub/wwwroot/ToDoApp/
 
 # Configurar sitio web (opcional: puedes hacerlo desde tu host también)
-RUN powershell -NoProfile -Command \
-    Import-Module WebAdministration ; \
-    New-WebApplication -Site "Default Web Site" -Name "ToDoApp" -PhysicalPath "C:\inetpub\wwwroot\ToDoApp" -ApplicationPool ".NET v4.5"
+RUN powershell -NoProfile -Command `
+    'Import-Module WebAdministration ; \
+    New-WebApplication -Site \"Default Web Site\" -Name \"ToDoApp\" -PhysicalPath \"C:\inetpub\wwwroot\ToDoApp\" -ApplicationPool \".NET v4.5\"'
 
 # Expone el puerto HTTP
 EXPOSE 80
