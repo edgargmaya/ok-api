@@ -14,3 +14,39 @@ RUN powershell -NoProfile -Command "Import-Module WebAdministration; New-WebAppl
 EXPOSE 80
 
 # IIS ya se inicia por defecto gracias a la imagen base
+
+---
+# Imagen base con Windows Server Core + IIS
+FROM mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019
+
+# Habilitar características necesarias de Windows para ASP.NET 4.7 y WCF
+RUN dism /online /enable-feature /all /featurename:IIS-ASPNET45 /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-NetFxExtensibility45 /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-WebServerRole /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-WebServer /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-ISAPIExtensions /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-ISAPIFilter /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-WindowsAuthentication /NoRestart && \
+    dism /online /enable-feature /all /featurename:IIS-ClientCertificateMappingAuthentication /NoRestart && \
+    dism /online /enable-feature /all /featurename:WCF-HTTP-Activation45 /NoRestart && \
+    dism /online /enable-feature /all /featurename:NetFx4Extended-ASPNET45 /NoRestart
+
+# Copiar WSE 3.0 DLLs manualmente si se requiere (no disponibles por DISM)
+# COPY lib/WSE3_DLLs/* "C:\inetpub\wwwroot\bin\"
+
+# Crear directorio de la app
+RUN mkdir C:\inetpub\wwwroot\ToDoApp
+
+# Establecer directorio de trabajo
+WORKDIR C:/inetpub/wwwroot/ToDoApp
+
+# Copiar archivos de la aplicación
+COPY . .
+
+# Configurar aplicación IIS
+RUN powershell -NoProfile -Command \
+    "Import-Module WebAdministration; \
+     New-WebApplication -Site 'Default Web Site' -Name 'ToDoApp' -PhysicalPath 'C:\\inetpub\\wwwroot\\ToDoApp' -ApplicationPool '.NET v4.5'"
+
+# Exponer puerto HTTP
+EXPOSE 80
