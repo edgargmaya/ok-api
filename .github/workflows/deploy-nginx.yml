@@ -42,5 +42,7 @@ jobs:
 
         echo "Desplegando manifiesto de Nginx..."
         kubectl apply -f nginx-deployment.yaml
-
+        echo "Consultando pods y servicios..."
+        kubectl get po -A
+        
         echo "¡Despliegue completado!"
