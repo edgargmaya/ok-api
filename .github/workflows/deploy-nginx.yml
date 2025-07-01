@@ -1,0 +1,30 @@
+name: Desplegar Nginx en EKS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy-to-eks:
+    runs-on: self-hosted
+
+    steps:
+    - name: 1. Checkout del código
+      uses: actions/checkout@v4
+
+    - name: 2. Configurar credenciales de AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::471112643429:role/test-cluster-gh-runners-iam-role
+        aws-region: us-east-1
+
+    - name: 3. Desplegar Nginx en EKS
+      run: |
+        echo "Configurando kubectl..."
+        aws eks update-kubeconfig --name test-cluster --region us-east-1
+
+        echo "Desplegando manifiesto de Nginx..."
+        kubectl apply -f nginx-deployment.yaml
+
+        echo "¡Despliegue completado!"
