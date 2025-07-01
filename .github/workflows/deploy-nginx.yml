@@ -8,7 +8,10 @@ on:
 jobs:
   deploy-to-eks:
     runs-on: self-hosted
-
+    permissions:
+      id-token: write   # Permiso para solicitar un token OIDC de GitHub
+      contents: read 
+      
     steps:
     - name: 1. Checkout del código
       uses: actions/checkout@v4
