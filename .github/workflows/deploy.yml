@@ -1,0 +1,21 @@
+name: Desplegar en EKS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    # ¡Aquí está la magia!
+    runs-on: self-hosted 
+
+    steps:
+    - name: Checkout del código
+      uses: actions/checkout@v4
+
+    - name: Probar el runner
+      run: |
+        echo "🚀 Este job está corriendo en un runner dentro de mi clúster de K8s!"
+        echo "Hostname del pod:"
+        hostname
