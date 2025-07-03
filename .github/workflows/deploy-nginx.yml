@@ -19,7 +19,7 @@ jobs:
     - name: 2. Configurar credenciales de AWS
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: arn:aws:iam::211125352090:role/test-cluster-gh-runners-iam-role
+        role-to-assume: arn:aws:iam::730335621500:role/test-cluster-gh-runners-iam-role
         aws-region: us-east-1
 
     - name: 3. Desplegar Nginx en EKS
