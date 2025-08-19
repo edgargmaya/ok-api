@@ -1,116 +1,105 @@
-aws transfer create-user \
-    --server-id s-xxxxxxxxxxxx \
-    --user-name mi-usuario \
-    --role arn:aws:iam::123456789012:role/mi-rol-sftp \
-    --home-directory "/s3-bucket/mi-carpeta" \
-    --password-secret-arn arn:aws:secretsmanager:us-west-2:123456789012:secret:TransferFamily/user-password-mi-usuario
----
-Below is an example **README.md** that you could include in your repository. It explains how to add new Docker images (with a `Dockerfile` and a `config.txt`) inside the `images/` folder and describes how the GitHub Action will build and push those images automatically to your private registry.
+type Config struct {
+	AWSAccessKeyID     string `yaml:"CAAS_UI_AWS_ACCESS_KEY_ID"`
+	AWSSecretAccessKey string `yaml:"CAAS_UI_AWS_SECRET_ACCESS_KEY"`
+	BaseURL            string `yaml:"BASE_URL"`
+	AppEnv             string `yaml:"APP_ENV"`
+}
 
 ---
 
-# Build and Push Docker Images
+// pkg/config/config.go
+package config
 
-This repository uses a GitHub Actions workflow to automatically build and push Docker images to a private registry whenever changes are detected in the `images/` folder. Each subfolder within `images/` should contain:
-1. A `Dockerfile`
-2. A `config.txt` file that defines (at least) the image version in the format `version=<TAG>`.
+import (
+	"log"
+	"os"
+	"sync"
+	
+	"github.com/fsnotify/fsnotify"
+	"gopkg.in/yaml.v3"
+)
 
-## Folder Structure
+// (Aquí iría tu struct Config)
+type Config struct { ... }
 
-A minimal example structure might look like this:
+var (
+	currentConfig Config
+	configMutex   sync.RWMutex
+)
 
-```
-.
-├── .github/
-│   └── workflows/
-│       └── build-docker-images.yml
-└── images/
-    ├── my-service/
-    │   ├── Dockerfile
-    │   └── config.txt
-    └── another-service/
-        ├── Dockerfile
-        └── config.txt
-```
+// Init carga la configuración inicial y empieza a vigilar el archivo.
+func Init(path string) {
+	loadConfig(path)
+	go watchConfigFile(path)
+}
 
-Where:
-- **`my-service/`** is an example subfolder for your Docker image.  
-- **`Dockerfile`** is your Dockerfile describing how to build the container image.  
-- **`config.txt`** contains a simple key-value pair, for example:
+// Get devuelve la configuración actual de forma segura.
+func Get() Config {
+	configMutex.RLock()
+	defer configMutex.RUnlock()
+	return currentConfig
+}
 
-  ```
-  version=1.0.0
-  ```
+// (Aquí irían las funciones loadConfig y watchConfigFile)
+func loadConfig(path string) { ... }
+func loadConfig() {
+	log.Println("Cargando/Recargando configuración desde", configPath)
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Printf("ERROR: No se pudo leer el archivo de configuración: %v", err)
+		return
+	}
 
-  The GitHub Action will use `version=1.0.0` as the Docker tag.
+	var newConfig Config
+	if err := yaml.Unmarshal(data, &newConfig); err != nil {
+		log.Printf("ERROR: No se pudo decodificar el YAML: %v", err)
+		return
+	}
 
-## How to Add a New Docker Image
+	configMutex.Lock()
+	currentConfig = newConfig
+	configMutex.Unlock()
 
-1. **Create a new subfolder** under the `images/` directory, named after your service or image. For example, `images/new-service/`.
-2. **Add a `Dockerfile`** inside that subfolder.  
-   - You can copy an existing Dockerfile from another service as a reference, or create your own from scratch.
-3. **Add a `config.txt`** file in the same subfolder with your desired version. For example:
-   ```text
-   version=2.3
-   ```
-4. **Commit and push** these changes to the repository (on a branch, then open a pull request into `main`, or push directly to `main` depending on your workflow).
+	log.Println("¡Configuración cargada/actualizada exitosamente!")
+}
 
-Once these changes are pushed, the GitHub Actions workflow (`.github/workflows/build-docker-images.yml`) will detect the modified folder under `images/` and build/push your Docker image. The resulting image will be tagged as:
 
-```
-<REGISTRY_URL>/<folder_name>:<version_in_config.txt>
-```
+func watchConfigFile(path string) { ... }
+func watchConfigFile() {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatalf("Error al crear el vigilante de archivos: %v", err)
+	}
+	defer watcher.Close()
 
-For example, if your folder is `new-service` and the version is `2.3`, the tag will be:
+	if err := watcher.Add("/config"); err != nil {
+		log.Fatalf("Error al añadir el directorio al vigilante: %v", err)
+	}
 
-```
-<REGISTRY_URL>/new-service:2.3
-```
+	log.Printf("Vigilando cambios en %s", configPath)
 
-## How the Workflow Works
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok { return }
+			if (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) && event.Name == configPath {
+				loadConfig()
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok { return }
+			log.Printf("Error del vigilante: %v", err)
+		}
+	}
+}
 
-1. The workflow is triggered whenever changes are pushed to the `main` branch or a pull request is opened/updated, **as long as** those changes affect files in the `images/**` path.
-2. The step **“Identify changed folders”** determines which subfolders within `images/` have been modified.
-3. For each changed subfolder, the workflow:
-   - Reads the version from the `config.txt` file.
-   - Builds the Docker image using `docker buildx build`.
-   - Pushes the image to the private registry defined by the secrets in your repository’s settings.
-4. If a subfolder in `images/` **is not changed**, that image will **not** be rebuilt or pushed.
 
-## Important Notes
+func main() {
+    // Simplemente inicializas la configuración
+    config.Init("/etc/config/config.yaml")
 
-- Make sure to define the following secrets (and adjust the references in `build-docker-images.yml` accordingly):
-  - **`REGISTRY_URL`**: The URL or hostname of your private Docker registry.  
-  - **`REGISTRY_USERNAME`** and **`REGISTRY_PASSWORD`**: Credentials to log in to your private registry.  
-- If you want to build images with multiple tags (e.g., both `:2.3` and `:latest`), you can modify the `docker buildx build` step to include multiple `-t` options.
-- This workflow relies on `git diff` to detect changes between commits. If you are doing shallow clones (with `fetch-depth=1`), you may need to configure `fetch-depth=0` or handle the first commit scenario differently. Check the script for details.
-- If you need multi-platform images (e.g., `linux/amd64`, `linux/arm64`), you can adjust the `--platform` parameter in the `docker buildx build` command.
+    // Y cuando necesites un valor, lo pides
+    // cfg := config.Get()
+    // dbHost := cfg.Database.Host
 
-## Example Dockerfile
-
-Below is a minimal example `Dockerfile` that you can adapt:
-
-```dockerfile
-# images/new-service/Dockerfile
-FROM ubuntu:20.04
-RUN apt-get update && apt-get install -y curl
-# Copy application code, set up environment, etc.
-
-CMD ["echo", "Hello from new-service!"]
-```
-
-And a corresponding `config.txt`:
-
-```text
-version=2.3
-```
-
-When you push these files to the `images/new-service/` folder, the workflow will build the image and push:
-
-```
-<REGISTRY_URL>/new-service:2.3
-```
-
----
-
-Feel free to customize this README and adjust any paths or environment variable references as needed for your project. Happy coding!
+    // ... resto de la lógica ...
+}
