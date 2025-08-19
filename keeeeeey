@@ -68,15 +68,15 @@ func watchConfigFile(path string) { ... }
 func watchConfigFile() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatalf("Error al crear el vigilante de archivos: %v", err)
+		log.Fatalf("Error creating file watcher:: %v", err)
 	}
 	defer watcher.Close()
 
 	if err := watcher.Add("/config"); err != nil {
-		log.Fatalf("Error al añadir el directorio al vigilante: %v", err)
+		log.Fatalf("Error adding directory to watcher: %v", err)
 	}
 
-	log.Printf("Vigilando cambios en %s", configPath)
+	log.Printf("Watching for changes in %s", configPath)
 
 	for {
 		select {
