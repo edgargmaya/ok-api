@@ -115,25 +115,25 @@ import (
 	"testing"
 )
 
-func TestInitAndGetCfg(t *testing.T) {
+func TestConfigLoading(t *testing.T) {
 
-	// 1. Caso de Éxito: Cargar una configuración válida
+	// Caso de Éxito: Cargar una configuración válida
 	t.Run("Carga exitosa con YAML válido", func(t *testing.T) {
-		// Contenido YAML que usaremos para la prueba
+		// Contenido YAML que coincide con la estructura Config
 		yamlContent := `
-server:
-  host: "localhost"
-  port: 8080
+CAAS_UI_AWS_ACCESS_KEY_ID: "AKIAIOSFODNN7EXAMPLE"
+CAAS_UI_AWS_SECRET_ACCESS_KEY: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+BASE_URL: "http://localhost:8080"
+APP_ENV: "development"
 `
 		// Crear un archivo temporal para la prueba
 		tmpfile, err := os.CreateTemp("", "config-*.yaml")
 		if err != nil {
 			t.Fatalf("No se pudo crear el archivo temporal: %v", err)
 		}
-		// Asegurarse de que el archivo se elimine al final de la prueba
+		// Asegurarse de que el archivo se elimine al finalizar la prueba
 		defer os.Remove(tmpfile.Name())
 
-		// Escribir el contenido YAML en el archivo temporal
 		if _, err := tmpfile.Write([]byte(yamlContent)); err != nil {
 			t.Fatalf("No se pudo escribir en el archivo temporal: %v", err)
 		}
@@ -142,38 +142,47 @@ server:
 		// Llamar a la función Init con la ruta de nuestro archivo temporal
 		Init(tmpfile.Name())
 
-		// Verificar que la configuración se cargó correctamente
+		// Verificar que la configuración se cargó correctamente usando GetCfg
 		cfg := GetCfg()
-		if cfg.Server.Host != "localhost" {
-			t.Errorf("Se esperaba el host 'localhost', pero se obtuvo '%s'", cfg.Server.Host)
-		}
-		if cfg.Server.Port != 8080 {
-			t.Errorf("Se esperaba el puerto 8080, pero se obtuvo '%d'", cfg.Server.Port)
-		}
-	})
-
-	// 2. Caso de Error: Archivo no encontrado
-	t.Run("Error cuando el archivo no existe", func(t *testing.T) {
-		// Guardamos la configuración actual para asegurarnos de que no cambie
-		configAntes := GetCfg()
-
-		// Llamamos a Init con una ruta que sabemos que no existe
-		Init("ruta/que/no/existe.yaml")
-
-		configDespues := GetCfg()
-		// Verificamos que la configuración global no fue modificada
-		if configAntes.Server.Port != configDespues.Server.Port {
-			t.Error("La configuración cambió incluso cuando el archivo no existía")
-		}
-	})
-
-	// 3. Caso de Error: YAML inválido
-	t.Run("Error con formato YAML inválido", func(t *testing.T) {
-		// Guardamos la configuración actual
-		configAntes := GetCfg()
 		
+		expectedKeyID := "AKIAIOSFODNN7EXAMPLE"
+		if cfg.AwsAccessKeyID != expectedKeyID {
+			t.Errorf("Se esperaba AwsAccessKeyID '%s', pero se obtuvo '%s'", expectedKeyID, cfg.AwsAccessKeyID)
+		}
+
+		expectedBaseURL := "http://localhost:8080"
+		if cfg.BaseURL != expectedBaseURL {
+			t.Errorf("Se esperaba BaseURL '%s', pero se obtuvo '%s'", expectedBaseURL, cfg.BaseURL)
+		}
+
+		expectedAppEnv := "development"
+		if cfg.AppEnv != expectedAppEnv {
+			t.Errorf("Se esperaba AppEnv '%s', pero se obtuvo '%s'", expectedAppEnv, cfg.AppEnv)
+		}
+	})
+
+	// Caso de Error: Archivo no encontrado
+	t.Run("Error cuando el archivo no existe", func(t *testing.T) {
+		// Reiniciamos la variable global para esta prueba
+		currentConfig = Config{}
+		
+		// Llamamos a Init con una ruta que sabemos que no existe
+		Init("ruta/inexistente/config.yaml")
+
+		cfg := GetCfg()
+		// Verificamos que la configuración global siga vacía (zero value)
+		if cfg.BaseURL != "" {
+			t.Error("La configuración no debería haber cambiado si el archivo no existe")
+		}
+	})
+
+	// Caso de Error: YAML inválido
+	t.Run("Error con formato YAML inválido", func(t *testing.T) {
+		// Reiniciamos la variable global
+		currentConfig = Config{}
+
 		// Contenido con YAML malformado (un tabulador en lugar de espacios)
-		invalidYaml := `server:\n\tport: 8080`
+		invalidYaml := "BASE_URL: \t 'url-invalida'"
 
 		tmpfile, err := os.CreateTemp("", "invalid-*.yaml")
 		if err != nil {
@@ -189,9 +198,9 @@ server:
 		Init(tmpfile.Name())
 
 		// Verificamos que la configuración no haya sido alterada
-		configDespues := GetCfg()
-		if configAntes.Server.Port != configDespues.Server.Port {
-			t.Error("La configuración cambió incluso con un YAML inválido")
+		cfg := GetCfg()
+		if cfg.BaseURL != "" {
+			t.Error("La configuración no debería haber cambiado con un YAML inválido")
 		}
 	})
 }
