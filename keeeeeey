@@ -205,3 +205,37 @@ APP_ENV: "development"
 		}
 	})
 }
+
+
+---
+// ... (código anterior)
+
+		if _, err := tmpfile.Write([]byte(yamlContent)); err != nil {
+			// TRADUCCIÓN: "No se pudo escribir en el archivo temporal"
+			t.Fatalf("Failed to write to temporary file: %v", err)
+		}
+		tmpfile.Close()
+
+		Init(tmpfile.Name())
+
+		cfg := GetCfg()
+
+		expectedKeyID := "AKIAIOSFODNN7EXAMPLE"
+		if cfg.AwsAccessKeyID != expectedKeyID {
+			// TRADUCCIÓN: "Se esperaba ... pero se obtuvo ..."
+			t.Errorf("Expected AwsAccessKeyID '%s', but got '%s'", expectedKeyID, cfg.AwsAccessKeyID)
+		}
+
+		expectedBaseURL := "http://localhost:8080"
+		if cfg.BaseURL != expectedBaseURL {
+			// TRADUCCIÓN: "Se esperaba ... pero se obtuvo ..."
+			t.Errorf("Expected BaseURL '%s', but got '%s'", expectedBaseURL, cfg.BaseURL)
+		}
+
+		expectedAppEnv := "development"
+		if cfg.AppEnv != expectedAppEnv {
+			// TRADUCCIÓN: "Se esperaba ... pero se obtuvo ..."
+			t.Errorf("Expected AppEnv '%s', but got '%s'", expectedAppEnv, cfg.AppEnv)
+		}
+
+		// ... (código posterior)
