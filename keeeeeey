@@ -106,3 +106,92 @@ func main() {
 
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 SHELL := powershell.exe -NoProfile -ExecutionPolicy Bypass -Command
+
+---
+package config
+
+import (
+	"os"
+	"testing"
+)
+
+func TestInitAndGetCfg(t *testing.T) {
+
+	// 1. Caso de Éxito: Cargar una configuración válida
+	t.Run("Carga exitosa con YAML válido", func(t *testing.T) {
+		// Contenido YAML que usaremos para la prueba
+		yamlContent := `
+server:
+  host: "localhost"
+  port: 8080
+`
+		// Crear un archivo temporal para la prueba
+		tmpfile, err := os.CreateTemp("", "config-*.yaml")
+		if err != nil {
+			t.Fatalf("No se pudo crear el archivo temporal: %v", err)
+		}
+		// Asegurarse de que el archivo se elimine al final de la prueba
+		defer os.Remove(tmpfile.Name())
+
+		// Escribir el contenido YAML en el archivo temporal
+		if _, err := tmpfile.Write([]byte(yamlContent)); err != nil {
+			t.Fatalf("No se pudo escribir en el archivo temporal: %v", err)
+		}
+		tmpfile.Close()
+
+		// Llamar a la función Init con la ruta de nuestro archivo temporal
+		Init(tmpfile.Name())
+
+		// Verificar que la configuración se cargó correctamente
+		cfg := GetCfg()
+		if cfg.Server.Host != "localhost" {
+			t.Errorf("Se esperaba el host 'localhost', pero se obtuvo '%s'", cfg.Server.Host)
+		}
+		if cfg.Server.Port != 8080 {
+			t.Errorf("Se esperaba el puerto 8080, pero se obtuvo '%d'", cfg.Server.Port)
+		}
+	})
+
+	// 2. Caso de Error: Archivo no encontrado
+	t.Run("Error cuando el archivo no existe", func(t *testing.T) {
+		// Guardamos la configuración actual para asegurarnos de que no cambie
+		configAntes := GetCfg()
+
+		// Llamamos a Init con una ruta que sabemos que no existe
+		Init("ruta/que/no/existe.yaml")
+
+		configDespues := GetCfg()
+		// Verificamos que la configuración global no fue modificada
+		if configAntes.Server.Port != configDespues.Server.Port {
+			t.Error("La configuración cambió incluso cuando el archivo no existía")
+		}
+	})
+
+	// 3. Caso de Error: YAML inválido
+	t.Run("Error con formato YAML inválido", func(t *testing.T) {
+		// Guardamos la configuración actual
+		configAntes := GetCfg()
+		
+		// Contenido con YAML malformado (un tabulador en lugar de espacios)
+		invalidYaml := `server:\n\tport: 8080`
+
+		tmpfile, err := os.CreateTemp("", "invalid-*.yaml")
+		if err != nil {
+			t.Fatalf("No se pudo crear el archivo temporal: %v", err)
+		}
+		defer os.Remove(tmpfile.Name())
+
+		if _, err := tmpfile.Write([]byte(invalidYaml)); err != nil {
+			t.Fatalf("No se pudo escribir en el archivo temporal: %v", err)
+		}
+		tmpfile.Close()
+
+		Init(tmpfile.Name())
+
+		// Verificamos que la configuración no haya sido alterada
+		configDespues := GetCfg()
+		if configAntes.Server.Port != configDespues.Server.Port {
+			t.Error("La configuración cambió incluso con un YAML inválido")
+		}
+	})
+}
