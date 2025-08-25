@@ -239,3 +239,52 @@ APP_ENV: "development"
 		}
 
 		// ... (código posterior)
+
+---
+
+Of course. Here is a detailed report in English, formatted as a JIRA ticket comment, based on the changes you've provided and the context you've shared.
+
+Technical Proposal: Refactor Configuration Loading from Environment Variables to a File-Based Approach
+This comment details a set of proposed changes to refactor the application's configuration mechanism. The primary goal is to move from using environment variables to a more structured, file-based approach using a config.yaml file. This change provides a centralized and version-controllable way to manage application settings. This involves modifications to both the Go application code and the Helm chart used for Kubernetes deployments.
+
+1. Helm Chart Modifications
+To support the new configuration method, several changes were introduced to the Helm chart.
+
+ConfigMap Template Creation (templates/configmap.yaml)
+A new Helm template has been created to dynamically generate a Kubernetes ConfigMap. This ConfigMap contains a single key, config.yaml, whose content is populated directly from values defined in the Helm values.yaml file. This allows for environment-specific configurations to be managed cleanly through Helm values.
+
+Deployment Manifest Update (templates/deployment.yaml)
+The deployment.yaml has been updated to stop injecting configuration as environment variables. The env and envFrom sections, which previously pulled values from secrets and other sources, have been removed. Instead, the deployment now mounts the newly created ConfigMap as a volume. The config.yaml key from the ConfigMap is mounted directly into the container at the path /config/config.yaml.
+
+values.yaml Structure Update
+A new section, configData, has been added to the values.yaml file. This section serves as the new, centralized location for all application-level configuration that was previously managed by individual values. The Helm chart templates were also updated to define the volume and volume mount that consumes the ConfigMap.
+
+2. Application Code Modifications (Golang)
+Significant changes were made to the application's bootstrap process to handle the new configuration loading mechanism.
+
+New Configuration Package (pkg/config/config.go)
+A dedicated package for configuration has been developed. It uses a singleton pattern to ensure that the configuration is loaded only once and is accessible globally throughout the application via config.GetCfg().
+
+File Reading and Parsing Logic
+The core of the new package is the Init(path) function, which is called once at application startup. This function triggers loadConfig(path), which reads the file from the provided path, and then uses the gopkg.in/yaml.v3 library to unmarshal the YAML content into a new Config struct.
+
+Updated Config Struct
+The Config struct has been modified to use yaml tags instead of relying on environment variable libraries. These tags map the keys in the config.yaml file directly to the corresponding fields in the struct.
+
+Integration in main.go
+The application's entry point in main.go has been updated. The first action it now performs is calling config.Init("/config/config.yaml"). This hardcoded path directly corresponds to the mount path defined in the Kubernetes deployment.yaml, ensuring the application finds its configuration file when running in the cluster.
+
+3. Current Status and Next Steps
+IMPORTANT: These changes have been developed but are currently paused and have not been applied to any environment.
+
+The primary reason for pausing this implementation is the direct impact it would have on the local development workflow for our engineering teams. Currently, developers run the application on their local machines by setting environment variables. If these changes were merged, this workflow would break, as the application would now exclusively look for a /config/config.yaml file, which is not present in their local setups.
+
+To move forward, we need to coordinate with the development teams to devise a strategy that supports both local and deployed environments. Potential strategies include:
+
+Establishing a convention for developers to maintain a local config.yaml file for their environment.
+
+Enhancing the Go configuration code to implement a fallback mechanism: first, attempt to load the config.yaml file, and if it's not found, then attempt to populate the configuration from environment variables as a secondary option.
+
+Providing a standardized config.yaml.example file in the repository to guide local setup.
+
+We recommend scheduling a meeting to discuss these options and define a clear, non-disruptive rollout plan before merging these changes.
