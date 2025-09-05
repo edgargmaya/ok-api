@@ -27,3 +27,4 @@ foreach ($pod in $pods.items) {
     kubectl delete pod $podName -n $namespace
 }
 
+https://github.com/CrowdStrike/fcs-action/blob/main/README.md
