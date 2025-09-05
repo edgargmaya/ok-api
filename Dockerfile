@@ -28,3 +28,31 @@ foreach ($pod in $pods.items) {
 }
 
 https://github.com/CrowdStrike/fcs-action/blob/main/README.md
+
+stage('FCS scan') {
+  steps {
+    sh '''
+      set +e
+      # Ejemplo IaC; ajusta --path / imagen, etc.
+      fcs-cli iac scan \
+        --path infra/terraform \
+        --report-formats json,sarif,junit \
+        --output-path fcs-out \
+        --no-color
+      RC=$?
+      echo "FCS exit code: $RC"
+      # Imprime un resumen si hay JSON
+      if [ -f fcs-out/*.json ]; then
+        echo "== FCS JSON summary (primeros 2000 chars) =="
+        head -c 2000 fcs-out/*.json || true
+        echo ""
+      fi
+      exit $RC
+    '''
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'fcs-out/**', allowEmptyArchive: true
+    }
+  }
+}
