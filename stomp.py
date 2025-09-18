@@ -36,3 +36,54 @@ conn.send(topic, message)
 conn.disconnect()
 
 print("Mensaje enviado correctamente.")
+---
+graph TD
+    subgraph "Fase 1: Inicio y Orquestación"
+        A("1. Inicio del Servicio")
+        A --> B("Lanza Goroutine de Escucha/Procesamiento")
+        A --> C("Lanza Goroutine de Borrado")
+    end
+
+    subgraph "Fase 2: Ciclo de Procesamiento de Mensajes"
+        B --> D{"Escuchar desde la<br/>Cola SQS en Lotes"}
+        D --> E[Canal Interno `messageStream`]
+        E --> F("Procesador Central<br/>(HandleMessages)")
+        F --> G{"Switch por Tipo de Mensaje<br/>(handleMessage)"}
+
+        G -- Evento: CaaSOrder --> H["Handler: handleOrderCreated"]
+        H --> I{"Validación:<br/>¿Registro ya existe en BD?"}
+        I -- No (Es nuevo) --> J["Escribir nuevo<br/>registro en BD"]
+        I -- Sí (Idempotencia) --> K["Omitir Escritura"]
+        J --> L[Enviar a Canal de Borrado]
+        K --> L
+
+        G -- Evento: JenkinsJobCompleted --> M["Handler: handleCaaSCIOnboardingCompleted"]
+        M --> N{"Validación:<br/>¿Registro existe en BD?"}
+        N -- Si --> O["Actualizar<br/>registro en BD"]
+        N -- No (Error) --> P["Fin del Flujo<br/>(Return Nil)"]
+        O --> Q["Enviar Email de Notificación"]
+        Q --> L[Enviar a Canal de Borrado]
+
+        G -- Evento: Vault --> U["Handler: syncAndTriggerOnboarding"]
+        U --> V{"Validación"}
+        V -- Si --> W["Actualizar<br/>registro en BD"]
+        V -- No (Error) --> X["Fin del Flujo<br/>(Return Nil)"]
+        X --> Q["Enviar Email de Notificación"]
+        W --> L[Enviar a Canal de Borrado]
+
+        G -- Evento Desconocido --> L
+    end
+
+    subgraph "Fase 3: Ciclo de Eliminación"
+        L --> R["Canal: deleteStream"]
+        C --> S("Consumidor de Borrado")
+        R --> S
+        S --> T("Eliminar Mensaje<br/>de la Cola SQS")
+    end
+
+    %% --- Estilos para Claridad ---
+    style A fill:#cde4f9,stroke:#0b5ed7
+    style T fill:#f8d7da,stroke:#721c24
+    style S fill:#fff3cd,stroke:#856404
+    style C fill:#fff3cd,stroke:#856404
+    style F fill:#d1ecf1,stroke:#0c5460
