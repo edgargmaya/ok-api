@@ -38,52 +38,53 @@ conn.disconnect()
 print("Mensaje enviado correctamente.")
 ---
 graph TD
-    subgraph "Fase 1: Inicio y Orquestación"
-        A("1. Inicio del Servicio")
-        A --> B("Lanza Goroutine de Escucha/Procesamiento")
-        A --> C("Lanza Goroutine de Borrado")
+    subgraph "Phase 1: Start & Orchestration"
+        A("1. Service Start")
+        A --> B("Launch Listener/Processing Goroutine")
+        A --> C("Launch Deletion Goroutine")
     end
 
-    subgraph "Fase 2: Ciclo de Procesamiento de Mensajes"
-        B --> D{"Escuchar desde la<br/>Cola SQS en Lotes"}
-        D --> E[Canal Interno `messageStream`]
-        E --> F("Procesador Central<br/>(HandleMessages)")
-        F --> G{"Switch por Tipo de Mensaje<br/>(handleMessage)"}
+    subgraph "Phase 2: Message Processing Cycle"
+        B --> D{"Listen from the<br/>SQS Queue in Batches"}
+        D --> E[Internal Channel `messageStream`]
+        E --> F("Central Processor<br/>(HandleMessages)")
+        F --> G{"Switch by Message Type<br/>(handleMessage)"}
 
-        G -- Evento: CaaSOrder --> H["Handler: handleOrderCreated"]
-        H --> I{"Validación:<br/>¿Registro ya existe en BD?"}
-        I -- No (Es nuevo) --> J["Escribir nuevo<br/>registro en BD"]
-        I -- Sí (Idempotencia) --> K["Omitir Escritura"]
-        J --> L[Enviar a Canal de Borrado]
+        G -- Event: CaaSOrder --> H["Handler: handleOrderCreated"]
+        H --> I{"Validation:<br/>Does the record already exist in DB?"}
+        I -- No (New) --> J["Write new<br/>record to DB"]
+        I -- Yes (Idempotency) --> K["Skip Write"]
+        J --> L[Send to Deletion Channel]
         K --> L
 
-        G -- Evento: JenkinsJobCompleted --> M["Handler: handleCaaSCIOnboardingCompleted"]
-        M --> N{"Validación:<br/>¿Registro existe en BD?"}
-        N -- Si --> O["Actualizar<br/>registro en BD"]
-        N -- No (Error) --> P["Fin del Flujo<br/>(Return Nil)"]
-        O --> Q["Enviar Email de Notificación"]
-        Q --> L[Enviar a Canal de Borrado]
+        G -- Event: JenkinsJobCompleted --> M["Handler: handleCaaSCIOnboardingCompleted"]
+        M --> N{"Validation:<br/>Does the record exist in DB?"}
+        N -- Yes --> O["Update<br/>record in DB"]
+        N -- No (Error) --> P["End of Flow<br/>(Return Nil)"]
+        O --> Q["Send Notification Email"]
+        Q --> L[Send to Deletion Channel]
 
-        G -- Evento: Vault --> U["Handler: syncAndTriggerOnboarding"]
-        U --> V{"Validación"}
-        V -- Si --> W["Actualizar<br/>registro en BD"]
-        V -- No (Error) --> X["Fin del Flujo<br/>(Return Nil)"]
-        X --> Q["Enviar Email de Notificación"]
-        W --> L[Enviar a Canal de Borrado]
+        G -- Event: Vault --> U["Handler: syncAndTriggerOnboarding"]
+        U --> V{"Validation"}
+        V -- Yes --> W["Update<br/>record in DB"]
+        V -- No (Error) --> X["End of Flow<br/>(Return Nil)"]
+        X --> Q["Send Notification Email"]
+        W --> L[Send to Deletion Channel]
 
-        G -- Evento Desconocido --> L
+        G -- Unknown Event --> L
     end
 
-    subgraph "Fase 3: Ciclo de Eliminación"
-        L --> R["Canal: deleteStream"]
-        C --> S("Consumidor de Borrado")
+    subgraph "Phase 3: Deletion Cycle"
+        L --> R["Channel: deleteStream"]
+        C --> S("Deletion Consumer")
         R --> S
-        S --> T("Eliminar Mensaje<br/>de la Cola SQS")
+        S --> T("Delete Message<br/>from the SQS Queue")
     end
 
-    %% --- Estilos para Claridad ---
+    %% --- Styles for Clarity ---
     style A fill:#cde4f9,stroke:#0b5ed7
     style T fill:#f8d7da,stroke:#721c24
     style S fill:#fff3cd,stroke:#856404
     style C fill:#fff3cd,stroke:#856404
     style F fill:#d1ecf1,stroke:#0c5460
+
