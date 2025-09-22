@@ -164,3 +164,7 @@ try {
     System.err.println("¡ERROR! Algo salió mal durante la ejecución del script.")
     e.printStackTrace()
 }
+
+
+
+def command = "echo \"${policyContent.replaceAll('"', '\\"')}\" | vault policy write ${params.name} -"
