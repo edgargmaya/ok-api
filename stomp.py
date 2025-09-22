@@ -66,21 +66,47 @@ def executeShell(Map env, String script, boolean throwOnError = true) {
     return process.text
 }
 
-// Función para verificar si una política existe
+/**
+ * Verifica si una política de Vault existe.
+ *
+ * @param params Mapa que contiene el nombre de la política (`name`) y el namespace (`namespace`).
+ * @param token Token de Vault para autenticación.
+ * @return `true` si la política existe, `false` en caso contrario.
+ */
 Boolean policyExists(Map params = [:], String token) {
     if (!params.name || !params.namespace || !token) {
-        throw new IllegalArgumentException("policyExists: Los parámetros 'name', 'namespace' y 'token' son obligatorios.")
+        error "policyExists: Los parámetros 'name', 'namespace' y 'token' son obligatorios."
     }
-    def env = setupVaultEnvironment(params, token)
-    def command = "vault policy read ${params.name}"
 
-    try {
-        executeShell(env, command, false) // No lanzar error en caso de no existir
-        println "La política '${params.name}' existe."
-        return true
-    } catch (RuntimeException e) {
-        println "La política '${params.name}' no existe."
-        return false
+    // Usar con withEnv() para establecer variables de entorno de forma segura
+    withEnv([
+        "VAULT_ADDR=https://hcvdev.fiscloudservices.com",
+        "VAULT_NAMESPACE=${params.namespace}",
+        "VAULT_FORMAT=json",
+        "VAULT_TOKEN=${token}"
+    ]) {
+        try {
+            // 'vault policy read' fallará si la política no existe.
+            // Usamos 'returnStatus: true' para capturar el código de salida
+            def result = sh(
+                script: "vault policy read ${params.name}",
+                returnStatus: true
+            )
+
+            // Si el código de salida es 0, el comando fue exitoso y la política existe.
+            if (result == 0) {
+                echo "La política '${params.name}' existe."
+                return true
+            } else {
+                echo "La política '${params.name}' no existe."
+                return false
+            }
+        } catch (org.jenkinsci.plugins.workflow.steps.FlowInterruptedException e) {
+            // Este catch es para manejo de errores más complejos o interrupciones,
+            // pero 'returnStatus' ya maneja la mayoría de los casos de "no existe".
+            echo "La política '${params.name}' no existe (error al leer la política)."
+            return false
+        }
     }
 }
 
