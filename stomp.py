@@ -168,3 +168,71 @@ try {
 
 
 def command = "echo \"${policyContent.replaceAll('"', '\\"')}\" | vault policy write ${params.name} -"
+
+
+
+
+
+
+
+
+def createSecret(Map params = [:], Map secretData, String token) {
+    if (!params.path || !secretData || !params.namespace || !token) {
+        error "createSecret: Los parámetros 'path', 'secretData', 'namespace' y 'token' son obligatorios."
+    }
+
+    def env = [
+        "VAULT_ADDR=https://hcvdev.fiscloudservices.com",
+        "VAULT_NAMESPACE=${params.namespace}",
+        "VAULT_TOKEN=${token}"
+    ]
+
+    withEnv(env) {
+        try {
+            // Construir el string de datos para el comando
+            def dataString = secretData.collect { key, value ->
+                "${key}=\"${value.toString().replaceAll('"', '\\"')}\""
+            }.join(' ')
+
+            // Comando que inyecta los datos a través de stdin
+            sh "echo \"${dataString}\" | vault kv put ${params.path}"
+            
+            echo "Secreto en la ruta '${params.path}' creado/actualizado exitosamente."
+        } catch (Exception e) {
+            error "Error al crear/actualizar el secreto en la ruta '${params.path}': ${e.message}"
+        }
+    }
+}
+
+
+
+def setSecretMetadata(Map params = [:], Map metadata, String token) {
+    if (!params.path || !metadata || !params.namespace || !token) {
+        error "setSecretMetadata: Los parámetros 'path', 'metadata', 'namespace' y 'token' son obligatorios."
+    }
+
+    // Se asume que el secreto ya existe. Si no, esta operación fallará.
+    // Podrías añadir una verificación con 'secretExists' si lo deseas.
+
+    def env = [
+        "VAULT_ADDR=https://hcvdev.fiscloudservices.com",
+        "VAULT_NAMESPACE=${params.namespace}",
+        "VAULT_TOKEN=${token}"
+    ]
+
+    withEnv(env) {
+        try {
+            // Construir el string de metadatos
+            def metadataString = metadata.collect { key, value ->
+                "-add ${key}=\"${value.toString().replaceAll('"', '\\"')}\""
+            }.join(' ')
+
+            // Comando para agregar o actualizar metadatos
+            sh "vault kv metadata put ${params.path} ${metadataString}"
+            
+            echo "Metadatos en la ruta '${params.path}' creados/actualizados exitosamente."
+        } catch (Exception e) {
+            error "Error al setear metadatos para el secreto en la ruta '${params.path}': ${e.message}"
+        }
+    }
+}
