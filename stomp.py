@@ -37,57 +37,6 @@ conn.disconnect()
 
 print("Mensaje enviado correctamente.")
 ---
-graph TD
-    subgraph "Phase 1: Start & Orchestration"
-        A("1. Service Start")
-        A --> B("Launch Listener/Processing Goroutine")
-        A --> C("Launch Deletion Goroutine")
-    end
-
-    subgraph "Phase 2: Message Processing Cycle"
-        B --> D{"Listen from the<br/>SQS Queue in Batches"}
-        D --> E[Internal Channel `messageStream`]
-        E --> F("Central Processor<br/>(HandleMessages)")
-        F --> G{"Switch by Message Type<br/>(handleMessage)"}
-
-        G -- Event: CaaSOrder --> H["Handler: handleOrderCreated"]
-        H --> I{"Validation:<br/>Does the record already exist in DB?"}
-        I -- No (New) --> J["Write new<br/>record to DB"]
-        I -- Yes (Idempotency) --> K["Skip Write"]
-        J --> L[Send to Deletion Channel]
-        K --> L
-
-        G -- Event: JenkinsJobCompleted --> M["Handler: handleCaaSCIOnboardingCompleted"]
-        M --> N{"Validation:<br/>Does the record exist in DB?"}
-        N -- Yes --> O["Update<br/>record in DB"]
-        N -- No (Error) --> P["End of Flow<br/>(Return Nil)"]
-        O --> Q["Send Notification Email"]
-        Q --> L[Send to Deletion Channel]
-
-        G -- Event: Vault --> U["Handler: syncAndTriggerOnboarding"]
-        U --> V{"Validation"}
-        V -- Yes --> W["Update<br/>record in DB"]
-        V -- No (Error) --> X["End of Flow<br/>(Return Nil)"]
-        X --> Q["Send Notification Email"]
-        W --> L[Send to Deletion Channel]
-
-        G -- Unknown Event --> L
-    end
-
-    subgraph "Phase 3: Deletion Cycle"
-        L --> R["Channel: deleteStream"]
-        C --> S("Deletion Consumer")
-        R --> S
-        S --> T("Delete Message<br/>from the SQS Queue")
-    end
-
-    %% --- Styles for Clarity ---
-    style A fill:#cde4f9,stroke:#0b5ed7
-    style T fill:#f8d7da,stroke:#721c24
-    style S fill:#fff3cd,stroke:#856404
-    style C fill:#fff3cd,stroke:#856404
-    style F fill:#d1ecf1,stroke:#0c5460
----
 // ========= FUNCIONES DE VAULT ADAPTADAS PARA EJECUCIÓN LOCAL =========
 
 import groovy.json.JsonSlurper
@@ -97,9 +46,10 @@ import java.nio.file.Paths
 // Función auxiliar para configurar el entorno de Vault
 def setupVaultEnvironment(Map params = [:], String token) {
     def environment = [
-        "VAULT_ADDR"    : "http://localhost:8200",
+        "VAULT_ADDR"    : "https://hcvdev.fiscloudservices.com",
+        "VAULT_NAMESPACE": params.namespace,
         "VAULT_FORMAT"  : "json",
-        "VAULT_TOKEN"   : "hvs.z..."
+        "VAULT_TOKEN"   : token
     ]
     return environment
 }
@@ -118,8 +68,8 @@ def executeShell(Map env, String script, boolean throwOnError = true) {
 
 // Función para verificar si una política existe
 Boolean policyExists(Map params = [:], String token) {
-    if (!params.name || !token) {
-        throw new IllegalArgumentException("policyExists: Los parámetros 'name' y 'token' son obligatorios.")
+    if (!params.name || !params.namespace || !token) {
+        throw new IllegalArgumentException("policyExists: Los parámetros 'name', 'namespace' y 'token' son obligatorios.")
     }
     def env = setupVaultEnvironment(params, token)
     def command = "vault policy read ${params.name}"
@@ -136,11 +86,11 @@ Boolean policyExists(Map params = [:], String token) {
 
 // Función para crear una política de Vault (idempotente)
 def createPolicy(Map params = [:], String policyContent, String token) {
-    if (!params.name || !policyContent || !token) {
-        throw new IllegalArgumentException("createPolicy: Los parámetros 'name', 'policyContent' y 'token' son obligatorios.")
+    if (!params.name || !policyContent || !params.namespace || !token) {
+        throw new IllegalArgumentException("createPolicy: Los parámetros 'name', 'policyContent', 'namespace' y 'token' son obligatorios.")
     }
 
-    if (policyExists(params, token)) {
+    if (policyExists(name: params.name, namespace: params.namespace, token: token)) {
         println "La política '${params.name}' ya existe. No se hará nada."
         return
     }
@@ -166,7 +116,8 @@ def createPolicy(Map params = [:], String policyContent, String token) {
 // ========= CÓDIGO DE EJECUCIÓN =========
 
 // Configura tus variables
-def VAULT_TOKEN = "hvs.z..." // <-- Reemplaza con tu token real
+def VAULT_TOKEN = "s.YOUR_VAULT_ROOT_TOKEN_OR_AN_APPROPRIATE_TOKEN" // <-- Reemplaza con tu token real
+def VAULT_NAMESPACE = "admin" // <-- Reemplaza con tu namespace
 def POLICY_NAME = "test-policy"
 def POLICY_PATH = "secret/data/temporary-app/*" // Ruta del secreto KV v2
 
@@ -180,12 +131,7 @@ path "${POLICY_PATH}" {
 try {
     // Invoca la función para crear la política
     println "Iniciando la creación de la política '${POLICY_NAME}'..."
-
-    def paramsMap = [
-        name: POLICY_NAME
-    ]
-
-    createPolicy(paramsMap, myPolicyContent, VAULT_TOKEN)
+    createPolicy(name: POLICY_NAME, namespace: VAULT_NAMESPACE, policyContent: myPolicyContent, token: VAULT_TOKEN)
     println "Proceso completado."
 
 } catch (Exception e) {
