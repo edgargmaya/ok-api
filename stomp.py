@@ -236,3 +236,11 @@ def setSecretMetadata(Map params = [:], Map metadata, String token) {
         }
     }
 }
+
+
+
+def mySecretData = [
+                        "username": "app_user",
+                        "password": "strong-password-123",
+                        "db_name": "production_db"
+                    ]
