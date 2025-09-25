@@ -244,3 +244,7 @@ def mySecretData = [
                         "password": "strong-password-123",
                         "db_name": "production_db"
                     ]
+
+https://10.237.x.x:1443/tasks/admin/library/jobconfig/LibraryJobConfigTasks/viewJobConfig?jobConfigId=508
+
+https://x.x.x.com:8443/git/?p=A0006-CRM/ADA_BT_Backend.git
