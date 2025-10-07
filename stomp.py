@@ -238,11 +238,12 @@ def setSecretMetadata(Map params = [:], Map metadata, String token) {
 }
 
 
+Dear Ricardo and Pedro,
 
-This update summarizes the changes made and the challenges encountered. The original requirement was to switch to runMvpPipeline (currently in PoC) and stop using runBasePipeline. Both pipelines reside under vars/ in the shared library repo.
+After carefully reviewing my performance over the past few weeks and my current personal situation, I’ve decided to step back from the project. This isn’t due to lack of interest or experience; however, with my baby and my wife needing more attention until daycare (covered by our health insurance) begins in about two and a half months, the demand and stress have increased. I believe the most responsible thing is to avoid impacting the team’s pace or the project goals.
 
-runMvpPipeline is not yet fully complete: several code blocks contain hard-coded values, which prevents the calling pipeline from injecting values and using environment variables to control execution.
+I’ve already spoken with my manager at Rockybite and proposed a two-week notice period (tentatively through October 20, 2025). That said, I’m fully flexible if you’d prefer I conclude at the end of the current sprint instead.
 
-Additionally, there is a Terraform configuration issue: the project is not configured to create plans from feature branches (only from specific branches). As a result, although a run ID is generated, Sentinel fails because the queried run ID lacks required fields—especially the report field.
+I want to sincerely thank you both for your support, patience, and trust. I’m ready to coordinate a smooth handover—documentation, knowledge transfer sessions, and anything else needed to ensure continuity.
 
-Given the above, the task is as complete as possible under the current constraints. Once scanning for feature branches is enabled, the pipeline will be able to retrieve the report successfully.
+Thank you again, and I remain at your disposal.
