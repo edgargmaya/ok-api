@@ -239,10 +239,10 @@ def setSecretMetadata(Map params = [:], Map metadata, String token) {
 
 
 
-def mySecretData = [
-                        "username": "app_user",
-                        "password": "strong-password-123",
-                        "db_name": "production_db"
-                    ]
+This update summarizes the changes made and the challenges encountered. The original requirement was to switch to runMvpPipeline (currently in PoC) and stop using runBasePipeline. Both pipelines reside under vars/ in the shared library repo.
 
-MXAPM0002480-source-miatt-backend.git
+runMvpPipeline is not yet fully complete: several code blocks contain hard-coded values, which prevents the calling pipeline from injecting values and using environment variables to control execution.
+
+Additionally, there is a Terraform configuration issue: the project is not configured to create plans from feature branches (only from specific branches). As a result, although a run ID is generated, Sentinel fails because the queried run ID lacks required fields—especially the report field.
+
+Given the above, the task is as complete as possible under the current constraints. Once scanning for feature branches is enabled, the pipeline will be able to retrieve the report successfully.
