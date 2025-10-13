@@ -115,3 +115,20 @@ stage('FCS IaC scan') {
     }
   }
 }
+
+
+
+Run run = new Run(this, env.TF_WORKSPACE_ID, env.TFE_HOSTNAME, env.BITBUCKET_REPO_NAME, CONSUMER_COMMAND)
+
+stage('Start new TFE Run') {
+  container(TF_AGENT_CONTAINER) {
+    script {
+      def runId = run.startNewTFERun("Pull request #${env.CHANGE_ID}", PLAN_ONLY)
+      echo "Run ID recibido de TFE: ${runId}"
+      env.TF_RUN_ID = runId          // <-- lo pasamos a ENV para toda la pipeline
+    }
+  }
+  echo "TF_RUN_ID (env): ${env.TF_RUN_ID}"
+}
+
+runMvpPipeline()  // aquí ya existe env.TF_RUN_ID
