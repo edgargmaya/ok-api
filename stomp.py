@@ -151,7 +151,7 @@ ui:
   service:
     type: LoadBalancer
     annotations:
-      service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-aaa,subnet-bbb,subnet-ccc"
+      service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-54e0e7bafdb3240,subnet-45f56d1c2f19f1d,subnet-b130037cc84fd91"
 
 connectInject:
   enabled: true
