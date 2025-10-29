@@ -94,3 +94,65 @@ resource "kubernetes_secret_v1" "consul_vault_token" {
 
   type = "Opaque"
 }
+---
+key_prefix "vault/" {
+  policy = "write"
+}
+
+session_prefix "" {
+  policy = "write"
+}
+
+service "vault" {
+  policy = "write"
+}
+
+node_prefix "" {
+  policy = "read"
+}
+
+agent_prefix "" {
+  policy = "read"
+}
+---
+global:
+  tls:
+    enabled: true
+  acls:
+    manageSystemACLs: true
+
+server:
+  replicas: 3
+  storageClass: "gp2"
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "300m"
+    limits:
+      memory: "1Gi"
+      cpu: "300m"
+  storage: "30Gi"
+
+client:
+  enabled: false
+  affinity: |
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - consul
+          topologyKey: "kubernetes.io/hostname"
+
+ui:
+  enabled: true
+  service:
+    type: LoadBalancer
+
+connectInject:
+  enabled: true
+
+# helm upgrade --install consul hashicorp/consul --create-namespace --namespace vault -f consul-values.yaml
+# helm show values hashicorp/consul
