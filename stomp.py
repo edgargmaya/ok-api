@@ -150,6 +150,8 @@ ui:
   enabled: true
   service:
     type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-aaa,subnet-bbb,subnet-ccc"
 
 connectInject:
   enabled: true
