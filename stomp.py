@@ -158,3 +158,67 @@ connectInject:
 
 # helm upgrade --install consul hashicorp/consul --create-namespace --namespace vault -f consul-values.yaml
 # helm show values hashicorp/consul
+
+---
+server:
+  serviceAccount:
+    create: true
+    name: "$VAULT_KSA_NAME"
+    # Como no usamos KMS, generalmente no necesitamos el IRSA aquí para el sello.
+    # Si usas AWS Auth Method, podrías necesitar descomentarlo.
+    # annotations:
+    #   eks.amazonaws.com/role-arn: "$ROLE_ARN"
+
+  affinity: |
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            match-expressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - vault
+          topologyKey: "kubernetes.io/hostname"
+
+  volumes:
+  - name: consul-ca
+    secret:
+      secretName: consul-consul-ca-cert
+
+  volumeMounts:
+  - name: consul-ca
+    mountPath: "/vault/userconfig/consul-ca"
+    readOnly: true
+
+  extraSecretEnvironmentVars:
+    - envName: CONSUL_HTTP_TOKEN
+      secretName: consul-vault-token
+      secretKey: token
+
+  ha:
+    enabled: true
+    replicas: 2
+    config: |
+      ui = true
+      
+      storage "consul" {
+        address = "consul-consul-server:8501"
+        path    = "vault/"
+        scheme  = "https"
+        tls_ca_file = "/vault/userconfig/consul-ca/tls.crt"
+      }
+
+      # BLOQUE KMS ELIMINADO PARA USAR SHAMIR (MANUAL)
+      
+      listener "tcp" {
+        address = "0.0.0.0:8200"
+        cluster_address = "0.0.0.0:8201"
+        tls_disable = "true"
+      }
+      
+      disable_mlock = true
+      service_registration "kubernetes" {}
+
+ui:
+  enabled: true
+  serviceType: "LoadBalancer"
