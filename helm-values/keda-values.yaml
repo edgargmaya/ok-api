@@ -1,0 +1,8 @@
+operator:
+  replicaCount: 1
+
+metricsServer:
+  replicaCount: 1
+
+webhooks:
+  replicaCount: 1
