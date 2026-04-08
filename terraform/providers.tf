@@ -13,7 +13,7 @@ terraform {
   }
 }
 
-# Misma configuración que usa kubectl: archivo kubeconfig y contexto opcional.
+# Same settings kubectl uses: kubeconfig file and optional context.
 provider "kubernetes" {
   config_path    = pathexpand(var.kubeconfig_path)
   config_context = var.kubeconfig_context
