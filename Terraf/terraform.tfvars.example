@@ -1,0 +1,17 @@
+# Copia a terraform.tfvars y rellena con tus valores reales.
+# cp terraform.tfvars.example terraform.tfvars
+
+aws_region = "us-east-1"
+
+subnet_id            = "subnet-xxxxxxxx"
+security_group_ids   = ["sg-xxxxxxxx"]
+iam_instance_profile_name = "mi-instance-profile"
+
+# Opcional: si ya conoces la VPC (si no, se infiere de la subred).
+# vpc_id = "vpc-xxxxxxxx"
+
+# Opcional: AMI propia; si se omite, Ubuntu 22.04 LTS amd64 de Canonical.
+# ami_id = "ami-xxxxxxxx"
+
+# instance_type = "t3.micro"
+# associate_public_ip_address = true
