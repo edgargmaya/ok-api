@@ -1,0 +1,113 @@
+# Terraform EC2 — plan en push a main/master; apply tras aprobación manual.
+#
+# Aprobación manual: en el repo → Settings → Environments → crear "terraform-apply"
+# → Environment protection rules → Required reviewers (tú u otro aprobador).
+#
+# Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY. Opcional: AWS_SESSION_TOKEN.
+# Variables del repo (opcional): AWS_REGION (por defecto us-east-1 en el workflow).
+# Opcional: secreto TERRAFORM_TFVARS = contenido multilínea de terraform.tfvars (no subas tfvars con secretos al repo).
+
+name: Terraform EC2
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "EC2/**"
+      - ".github/workflows/terraform-ec2.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: EC2
+
+jobs:
+  plan:
+    name: terraform plan
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: "${{ vars.AWS_REGION || 'us-east-1' }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.4"
+          terraform_wrapper: false
+
+      - name: Prepare terraform.tfvars
+        env:
+          TFVARS: ${{ secrets.TERRAFORM_TFVARS }}
+        run: |
+          if [ -n "${TFVARS:-}" ]; then
+            printf '%s\n' "$TFVARS" > terraform.tfvars
+          elif [ ! -f terraform.tfvars ]; then
+            echo "Falta terraform.tfvars. Crea el secreto TERRAFORM_TFVARS o añade terraform.tfvars al repo (evita secretos en git)."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        run: terraform validate
+
+      - name: Terraform plan
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: EC2/tfplan
+          retention-days: 5
+
+  apply:
+    name: terraform apply
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: terraform-apply
+    env:
+      AWS_REGION: "${{ vars.AWS_REGION || 'us-east-1' }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.4"
+          terraform_wrapper: false
+
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: EC2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform init -input=false
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve tfplan
