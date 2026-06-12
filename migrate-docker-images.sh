@@ -1,10 +1,21 @@
 import { spawn } from "child_process";
+import { readFile } from "fs/promises";
 
 type CommandResult = {
   exitCode: number;
   stdout: string;
   stderr: string;
 };
+
+async function readLinesFromFile(filePath: string): Promise<string[]> {
+  const content = await readFile(filePath, "utf8");
+
+  return content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !line.startsWith("#"));
+}
 
 function runBashOverDoubleSsh(
   jumpHost: string,
