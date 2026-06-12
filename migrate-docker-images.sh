@@ -7,6 +7,63 @@ type CommandResult = {
   stderr: string;
 };
 
+
+
+
+
+
+
+import { spawn } from "child_process";
+
+type CommandResult = {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+};
+
+function runLocalBash(
+  bashScript: string
+): Promise<CommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("bash", ["-s"], {
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      resolve({
+        exitCode: code ?? 1,
+        stdout,
+        stderr
+      });
+    });
+
+    child.stdin.write(bashScript);
+    child.stdin.end();
+  });
+}
+
+
+
+
+
+
+
+
 async function readLinesFromFile(filePath: string): Promise<string[]> {
   const content = await readFile(filePath, "utf8");
 
