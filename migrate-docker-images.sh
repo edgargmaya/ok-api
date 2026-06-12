@@ -62,6 +62,15 @@ function runBashOverDoubleSsh(
 }
 
 async function main() {
+
+  const lines = await readLinesFromFile(inputFile);
+
+  console.log(`Total de líneas válidas: ${lines.length}`);
+
+  for (const line of lines) {
+    console.log(`Línea: ${line}`);
+  }
+  
   const jumpHost = "ssh1-den";
   const targetHost = "den-r17-u14";
 
