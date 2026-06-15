@@ -10,6 +10,53 @@ type CommandResult = {
 
 
 
+
+
+const bashScript = String.raw`
+set -euo pipefail
+
+kubectl exec -i -n ${namespace} ${pod} -- bash <<'POD_SCRIPT'
+set -euo pipefail
+
+DB_NAME="${database}"
+
+VERSION_NUM=$(su - postgres -c "psql -d \"$DB_NAME\" -t -A -c 'show server_version_num;'")
+VERSION_NUM=$(echo "$VERSION_NUM" | tr -d '[:space:]')
+
+if [ -z "$VERSION_NUM" ]; then
+  echo '{"success":false,"error":"Could not determine PostgreSQL version"}'
+  exit 1
+fi
+
+if [ "$VERSION_NUM" -ge 100000 ]; then
+  SWITCH_FUNCTION="pg_switch_wal"
+  SWITCH_RESULT=$(su - postgres -c "psql -d \"$DB_NAME\" -t -A -c 'select pg_switch_wal();'")
+else
+  SWITCH_FUNCTION="pg_switch_xlog"
+  SWITCH_RESULT=$(su - postgres -c "psql -d \"$DB_NAME\" -t -A -c 'select pg_switch_xlog();'")
+fi
+
+SWITCH_RESULT=$(echo "$SWITCH_RESULT" | tr -d '[:space:]')
+
+su - postgres -c "psql -d \"$DB_NAME\" -t -A <<SQL
+select row_to_json(t)
+from (
+  select
+    true as success,
+    current_setting('server_version') as server_version,
+    current_setting('server_version_num')::int as server_version_num,
+    '$SWITCH_FUNCTION' as executed_function,
+    '$SWITCH_RESULT' as wal_location
+) t;
+SQL"
+
+POD_SCRIPT
+`;
+
+
+
+
+
 su - postgres -c "psql -d postgres -t -A <<'SQL'
 select coalesce(json_agg(row_to_json(t)), '[]'::json)
 from (
