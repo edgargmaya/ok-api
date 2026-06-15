@@ -10,6 +10,45 @@ type CommandResult = {
 
 
 
+su - postgres -c "psql -d postgres -t -A <<'SQL'
+select coalesce(json_agg(row_to_json(t)), '[]'::json)
+from (
+  select
+    pid,
+    usename,
+    datname,
+    client_addr,
+    application_name,
+    backend_type,
+    state,
+    wait_event_type,
+    wait_event,
+    backend_start,
+    xact_start,
+    query_start,
+    state_change,
+    now() - xact_start as transaction_duration,
+    now() - query_start as query_duration,
+    now() - state_change as state_duration,
+    query
+  from pg_stat_activity
+  where pid <> pg_backend_pid()
+    and datname is not null
+    and (
+      state = 'active'
+      or state like 'idle in transaction%'
+      or xact_start is not null
+    )
+  order by
+    datname,
+    xact_start nulls last,
+    query_start nulls last
+) t;
+SQL"
+
+
+
+
 const bashScript = String.raw`
 set -euo pipefail
 
