@@ -10,6 +10,25 @@ type CommandResult = {
 
 
 
+const bashScript = String.raw`
+set -euo pipefail
+
+kubectl exec -i -n ${namespace} ${pod} -- bash <<'POD_SCRIPT'
+set -euo pipefail
+
+su - postgres -c "psql -d postgres -t -A <<'SQL'
+select coalesce(json_agg(row_to_json(t)), '[]'::json)
+from (
+  select *
+  from pg_stat_activity
+  where state = 'active'
+) t;
+SQL"
+
+POD_SCRIPT
+`;
+
+
 
 
 const bashScript = String.raw`
