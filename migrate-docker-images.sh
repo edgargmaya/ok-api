@@ -11,6 +11,28 @@ type CommandResult = {
 
 
 
+const bashScript = String.raw`
+set -euo pipefail
+
+kubectl exec -i -n ${namespace} ${pod} -- bash <<'POD_SCRIPT'
+set -euo pipefail
+
+CONNECTION_DB="${connectionDatabase}"
+
+su - postgres -c "psql -d \"$CONNECTION_DB\" -t -A <<'SQL'
+select datname
+from pg_database
+where datistemplate = false
+  and datname not in ('postgres', 'template0', 'template1')
+order by datname;
+SQL"
+
+POD_SCRIPT
+`;
+
+
+
+
 
 const bashScript = String.raw`
 set -euo pipefail
