@@ -23,94 +23,15 @@ DB_NAME="${database}"
 VERSION_NUM=$(su - postgres -c "psql -d \"$DB_NAME\" -t -A -c 'show server_version_num;'")
 VERSION_NUM=$(echo "$VERSION_NUM" | tr -d '[:space:]')
 
-if [ -z "$VERSION_NUM" ]; then
-  echo '{"success":false,"error":"Could not determine PostgreSQL version"}'
-  exit 1
-fi
+echo "Detected PostgreSQL server_version_num: $VERSION_NUM"
 
 if [ "$VERSION_NUM" -ge 100000 ]; then
-  SWITCH_FUNCTION="pg_switch_wal"
-  SWITCH_RESULT=$(su - postgres -c "psql -d \"$DB_NAME\" -t -A -c 'select pg_switch_wal();'")
+  echo "Executing pg_switch_wal()..."
+  su - postgres -c "psql -d \"$DB_NAME\" -c 'select pg_switch_wal();'"
 else
-  SWITCH_FUNCTION="pg_switch_xlog"
-  SWITCH_RESULT=$(su - postgres -c "psql -d \"$DB_NAME\" -t -A -c 'select pg_switch_xlog();'")
+  echo "Executing pg_switch_xlog()..."
+  su - postgres -c "psql -d \"$DB_NAME\" -c 'select pg_switch_xlog();'"
 fi
-
-SWITCH_RESULT=$(echo "$SWITCH_RESULT" | tr -d '[:space:]')
-
-su - postgres -c "psql -d \"$DB_NAME\" -t -A <<SQL
-select row_to_json(t)
-from (
-  select
-    true as success,
-    current_setting('server_version') as server_version,
-    current_setting('server_version_num')::int as server_version_num,
-    '$SWITCH_FUNCTION' as executed_function,
-    '$SWITCH_RESULT' as wal_location
-) t;
-SQL"
-
-POD_SCRIPT
-`;
-
-
-
-
-
-su - postgres -c "psql -d postgres -t -A <<'SQL'
-select coalesce(json_agg(row_to_json(t)), '[]'::json)
-from (
-  select
-    pid,
-    usename,
-    datname,
-    client_addr,
-    application_name,
-    backend_type,
-    state,
-    wait_event_type,
-    wait_event,
-    backend_start,
-    xact_start,
-    query_start,
-    state_change,
-    now() - xact_start as transaction_duration,
-    now() - query_start as query_duration,
-    now() - state_change as state_duration,
-    query
-  from pg_stat_activity
-  where pid <> pg_backend_pid()
-    and datname is not null
-    and (
-      state = 'active'
-      or state like 'idle in transaction%'
-      or xact_start is not null
-    )
-  order by
-    datname,
-    xact_start nulls last,
-    query_start nulls last
-) t;
-SQL"
-
-
-
-
-const bashScript = String.raw`
-set -euo pipefail
-
-kubectl exec -i -n ${namespace} ${pod} -- bash <<'POD_SCRIPT'
-set -euo pipefail
-
-su - postgres -c "psql -d postgres -t -A <<'SQL'
-select coalesce(json_agg(row_to_json(t)), '[]'::json)
-from (
-  select *
-  from pg_stat_activity
-  where state = 'active'
-) t;
-SQL"
-
 POD_SCRIPT
 `;
 
