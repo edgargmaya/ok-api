@@ -12,6 +12,24 @@ type CommandResult = {
 
 
 
+const bashScript = String.raw`
+set -euo pipefail
+
+kubectl exec -i -n ${namespace} ${pod} -- bash <<'POD_SCRIPT'
+set -euo pipefail
+
+su - postgres -c "psql <<'SQL'
+select *
+from my_table
+where state = 'active';
+SQL"
+
+POD_SCRIPT
+`;
+
+
+
+
 
 import { spawn } from "child_process";
 
