@@ -11,6 +11,53 @@ type CommandResult = {
 
 
 
+
+
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET_DIR="/mdbs_backup1"
+OWNER="postgres"
+GROUP="postgres"
+
+if [ -d "$TARGET_DIR" ]; then
+  echo "Directory already exists: $TARGET_DIR"
+  echo
+
+  echo "Owner and group:"
+  stat -c 'Path: %n | Owner: %U | Group: %G | Permissions: %A' "$TARGET_DIR"
+  echo
+
+  echo "Content:"
+  ls -la "$TARGET_DIR"
+
+else
+  echo "Directory does not exist: $TARGET_DIR"
+  echo "Creating directory path..."
+  mkdir -p "$TARGET_DIR"
+
+  echo "Assigning owner and group: $OWNER:$GROUP"
+  chown "$OWNER:$GROUP" "$TARGET_DIR"
+
+  echo "Directory created successfully: $TARGET_DIR"
+  echo
+
+  echo "Owner and group:"
+  stat -c 'Path: %n | Owner: %U | Group: %G | Permissions: %A' "$TARGET_DIR"
+  echo
+
+  echo "Content:"
+  ls -la "$TARGET_DIR"
+fi
+
+
+
+
+
+
+
+
 const bashScript = String.raw`
 set -euo pipefail
 
