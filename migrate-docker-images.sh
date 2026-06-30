@@ -14,6 +14,165 @@ type CommandResult = {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function runBashOverDoubleSsh(
+  jumpHost: string,
+  targetHost: string,
+  bashScript: string
+): Promise<CommandResult> {
+  const maxRetries = 3;
+  const retryDelayMs = 2000;
+
+  const execute = (retryCount: number): Promise<CommandResult> => {
+    return new Promise((resolve, reject) => {
+      const child = spawn("ssh", [
+        "-A",
+        jumpHost,
+        "ssh",
+        targetHost,
+        "bash -s"
+      ], {
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+
+      let stdout = "";
+      let stderr = "";
+
+      child.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      child.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      child.on("error", (error) => {
+        reject(error);
+      });
+
+      child.on("close", (code) => {
+        const normalizedStderr = stderr
+          .replace(/\r\n/g, "\n")
+          .trim();
+
+        const retryableError =
+          /^kex_exchange_identification: read: Connection reset by peer\nConnection reset by \S+ port 2222$/;
+
+        const shouldRetry =
+          retryableError.test(normalizedStderr) &&
+          retryCount < maxRetries;
+
+        if (shouldRetry) {
+          console.warn(
+            `La conexión SSH fue reiniciada por el servidor. ` +
+            `Reintento ${retryCount + 1} de ${maxRetries} ` +
+            `en ${retryDelayMs} ms...`
+          );
+
+          setTimeout(() => {
+            execute(retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          }, retryDelayMs);
+
+          return;
+        }
+
+        resolve({
+          exitCode: code ?? 1,
+          stdout,
+          stderr
+        });
+      });
+
+      child.stdin.write(bashScript);
+      child.stdin.end();
+    });
+  };
+
+  return execute(0);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #!/usr/bin/env bash
 set -euo pipefail
 
