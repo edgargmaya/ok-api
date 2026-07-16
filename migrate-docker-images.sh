@@ -13,7 +13,10 @@ type CommandResult = {
 
 
 
-
+find . -type d -print0 | while IFS= read -r -d '' dir; do
+  count=$(find "$dir" -maxdepth 1 -type f | wc -l)
+  echo "$dir: $count"
+done
 
 
 
