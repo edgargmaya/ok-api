@@ -1,0 +1,74 @@
+name: "Repo Analyzer (master branch)"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "repos_to_check.txt"
+      - ".github/workflows/analizer.yml"
+      - "scripts/analyze_repos.py"
+
+jobs:
+  analyze-master:
+    runs-on: MXDP01-OCI
+    timeout-minutes: 360
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "Setup Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: "Analyze repositories from repos_to_check.txt"
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_SOURCE_PREFIX: ssh://git@scm.mx.att.com/
+        run: |
+          set -euo pipefail
+          WORKSPACE="${GITHUB_WORKSPACE:-$(pwd)}"
+          cd "$WORKSPACE"
+
+          if [ ! -f repos_to_check.txt ]; then
+            echo "ERROR: no existe repos_to_check.txt"
+            exit 2
+          fi
+
+          mkdir -p reports .work
+
+          python3 scripts/analyze_repos.py \
+            --repos-file repos_to_check.txt \
+            --output-dir reports \
+            --work-dir .work \
+            --branch master \
+            --max-blob-size-mb 100 \
+            --ssh-source-prefix "$SSH_SOURCE_PREFIX"
+
+          echo ""
+          echo "=========================================="
+          echo "  Resumen de análisis"
+          echo "=========================================="
+          if [ -f reports/summary.md ]; then
+            cat reports/summary.md
+          else
+            echo "(no se generó reports/summary.md)"
+          fi
+
+      - name: "Publish job summary"
+        if: always()
+        shell: bash
+        run: |
+          if [ -f reports/summary.md ]; then
+            cat reports/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: "Upload analysis reports"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-branch-analysis
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 30
