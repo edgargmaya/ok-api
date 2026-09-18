@@ -3,7 +3,17 @@ name: Desplegar Nginx en EKS
 on:
   push:
     branches:
-      - main
+      - '**'
+    paths-ignore:
+      - '.github/workflows/analizer.yml'
+      - 'scripts/**'
+      - 'repos_to_check.txt'
+  pull_request:
+    paths-ignore:
+      - '.github/workflows/analizer.yml'
+      - 'scripts/**'
+      - 'repos_to_check.txt'
+  workflow_dispatch:
 
 jobs:
   deploy-to-eks:
