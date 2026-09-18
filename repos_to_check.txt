@@ -1,0 +1,5 @@
+# Una ruta por línea, sin cabecera. Líneas que empiezan con # se ignoran.
+# Formato igual a la columna 1 de repos.csv:
+#   A0033-Mediation/ATT_Mediation_BT_ATT_VMSC_911.git
+# También se aceptan URLs SSH completas:
+#   ssh://git@scm.mx.att.com/A0033-Mediation/ATT_Mediation_BT_ATT_VMSC_911.git
